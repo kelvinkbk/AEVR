@@ -1,0 +1,21 @@
+{
+  "name": "suis",
+  "version": "1.0.0",
+  "description": "",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "electron": "^43.2.0"
+  },
+  "dependencies": {
+    "@computer-use/nut-js": "^4.2.0",
+    "dotenv": "^17.4.2",
+    "openai": "^6.49.0"
+  }
+}

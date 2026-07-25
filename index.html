@@ -1,0 +1,967 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Assistant UI Prototype</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
+
+        /* -----------------------------------------
+           GLOBALS & HIGH-END ARCHITECTURE
+           ----------------------------------------- */
+        :root {
+            /* Ethereal Glass Vibe */
+            --bg-gradient: radial-gradient(circle at top, #11111a 0%, #050505 100%);
+            --msg-ring: rgba(255, 255, 255, 0.15);
+            /* Fluid Spring Motion */
+            --spring-ease: cubic-bezier(0.32, 0.72, 0, 1);
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background: transparent;
+            background-size: cover;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            padding-top: 60px;
+            color: #fff;
+            overflow: hidden;
+            transition: background 0.5s ease;
+            pointer-events: none; /* Make body click-through */
+        }
+
+        /* -----------------------------------------
+           THE DOUBLE-BEZEL (DOPPELRAND) ISLAND
+           ----------------------------------------- */
+        .island-shell {
+            /* Outer Shell */
+            width: 320px;
+            height: 64px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 40px;
+            padding: 6px;
+            box-shadow: 
+                0 20px 50px rgba(0, 0, 0, 0.3),
+                inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+            transition: all 0.7s var(--spring-ease);
+            position: relative;
+            box-sizing: border-box;
+            
+            /* Make the actual widget interactive and draggable */
+            -webkit-app-region: drag;
+            pointer-events: auto;
+        }
+
+        .island-core {
+            /* Inner Core - Liquid Glass */
+            width: 100%;
+            height: 100%;
+            background: rgba(20, 20, 25, var(--glass-opacity, 0.15)); /* Dynamic liquid tint */
+            backdrop-filter: blur(60px) saturate(180%);
+            -webkit-backdrop-filter: blur(60px) saturate(180%);
+            border-radius: 34px; /* shell radius (40) - padding (6) */
+            box-shadow: 
+                inset 0 1px 2px rgba(255, 255, 255, 0.25), /* Specular rim */
+                inset 0 -1px 2px rgba(0, 0, 0, 0.4), /* Bottom refraction */
+                inset 0 10px 20px rgba(255, 255, 255, 0.03); /* Volumetric sheen */
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 16px;
+            box-sizing: border-box;
+            overflow: hidden;
+            flex-direction: column;
+            transition: all 0.7s var(--spring-ease);
+            
+            /* Inputs need to disable drag to be clickable */
+            -webkit-app-region: no-drag;
+        }
+
+        .island-shell.expanded {
+            width: 480px;
+            height: 380px;
+            border-radius: 32px;
+            padding: 8px;
+        }
+
+        .island-shell.expanded .island-core {
+            border-radius: 24px;
+            justify-content: flex-start;
+            align-items: stretch;
+            padding: 24px;
+        }
+
+        /* -----------------------------------------
+           TOP STATUS BAR (Avatar + Controls)
+           ----------------------------------------- */
+        .status-container {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            width: 100%;
+            height: 52px; /* Height in idle state */
+            flex-shrink: 0;
+            transition: all 0.7s var(--spring-ease);
+        }
+
+        .island-shell.expanded .status-container {
+            height: auto;
+            margin-bottom: 24px;
+        }
+
+        .ai-avatar-wrapper {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-shrink: 0;
+            position: relative;
+            z-index: 10;
+        }
+        
+        .ai-avatar {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            transition: all 0.6s var(--spring-ease);
+            background: linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0));
+            backdrop-filter: blur(12px) saturate(200%);
+            -webkit-backdrop-filter: blur(12px) saturate(200%);
+            box-shadow: 
+                inset 2px 2px 5px rgba(255, 255, 255, 0.6),
+                inset -4px -4px 10px rgba(0, 0, 0, 0.5),
+                0 0 20px rgba(255, 255, 255, 0.2); /* Bloom effect */
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            /* Plasma animation base */
+            animation: plasma 8s ease-in-out infinite alternate;
+        }
+
+        @keyframes plasma {
+            0% { background-position: 0% 50%; filter: hue-rotate(0deg); }
+            50% { background-position: 100% 50%; filter: hue-rotate(30deg); }
+            100% { background-position: 0% 50%; filter: hue-rotate(-30deg); }
+        }
+
+        .ai-avatar::after {
+            /* High-end glare/reflection */
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            border-radius: 50%;
+            background: linear-gradient(135deg, rgba(255,255,255,0.4) 0%, transparent 40%);
+            z-index: 2;
+            pointer-events: none;
+        }
+
+        .ai-avatar-inner {
+            /* The energy core */
+            position: absolute;
+            top: 10%; left: 10%;
+            width: 80%; height: 80%;
+            border-radius: 50%;
+            filter: blur(8px);
+            z-index: 1;
+            transition: all 0.8s var(--spring-ease), background-color 0.8s ease, box-shadow 0.8s ease;
+        }
+
+        .status-text {
+            font-size: 14px;
+            font-weight: 500;
+            flex-grow: 1;
+            opacity: 0.8;
+            letter-spacing: 0.2px;
+            transition: opacity 0.3s ease;
+        }
+
+        .controls {
+            display: flex;
+            gap: 8px;
+        }
+
+        .btn-glass {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: rgba(255, 255, 255, 0.7);
+            border-radius: 50%;
+            width: 36px;
+            height: 36px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            transition: transform 0.4s var(--spring-ease), background 0.3s ease, color 0.3s ease;
+        }
+
+        .btn-glass:hover {
+            background: rgba(255, 255, 255, 0.12);
+            color: #fff;
+            transform: scale(0.94); /* Kinetic tension */
+        }
+        
+        .btn-glass svg {
+            width: 16px;
+            height: 16px;
+        }
+
+        /* Opacity Slider styling */
+        .opacity-slider {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 60px;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 2px;
+            outline: none;
+            margin: auto 8px;
+            cursor: pointer;
+            transition: opacity 0.2s;
+            opacity: 0.5;
+        }
+        .opacity-slider:hover {
+            opacity: 1;
+        }
+        .opacity-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.9);
+            cursor: pointer;
+            box-shadow: 0 0 5px rgba(0,0,0,0.5);
+        }
+
+        /* -----------------------------------------
+           EXPANDED CHAT CONTENT & REVEALS
+           ----------------------------------------- */
+
+        .chat-content {
+            display: none;
+            flex-direction: column;
+            flex: 1;
+            min-height: 0;
+            width: 100%;
+            opacity: 0;
+        }
+
+        .island-shell.expanded .chat-content {
+            display: flex;
+            opacity: 1;
+        }
+
+        .message-area {
+            flex: 1;
+            min-height: 0;
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.9);
+            margin-bottom: 24px;
+            overflow-y: auto;
+            line-height: 1.6;
+            padding-right: 12px;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+        }
+
+        .message-content {
+            font-size: 0.95rem;
+            line-height: 1.5;
+            color: rgba(255, 255, 255, 0.9);
+        }
+
+        .thought-process {
+            background: rgba(0, 0, 0, 0.2);
+            border-left: 3px solid #00f0ff;
+            border-radius: 4px;
+            padding: 8px 12px;
+            margin-bottom: 10px;
+            font-size: 0.85rem;
+            color: rgba(255, 255, 255, 0.6);
+        }
+        .thought-header {
+            font-weight: 600;
+            margin-bottom: 4px;
+            color: #00f0ff;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .thought-content {
+            line-height: 1.4;
+            font-style: italic;
+        }
+
+        .message-area::-webkit-scrollbar { 
+            width: 4px; 
+            display: block; 
+        }
+        .message-area::-webkit-scrollbar-track { 
+            background: transparent; 
+        }
+        .message-area::-webkit-scrollbar-thumb { 
+            background: rgba(255, 255, 255, 0.2); 
+            border-radius: 4px;
+        }
+
+        .message {
+            margin-bottom: 16px;
+            max-width: 85%;
+            padding: 12px 18px;
+            border-radius: 20px;
+            opacity: 0;
+            transform: translateY(16px);
+            filter: blur(4px);
+            animation: messageReveal 0.8s var(--spring-ease) forwards;
+        }
+
+        @keyframes messageReveal {
+            to { opacity: 1; transform: translateY(0); filter: blur(0); }
+        }
+
+        .user-msg {
+            background: rgba(255, 255, 255, 0.08);
+            color: #fff;
+            align-self: flex-end;
+            margin-left: auto;
+            border-bottom-right-radius: 6px;
+        }
+
+        .ai-msg {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--msg-ring);
+            color: #fff;
+            align-self: flex-start;
+            border-bottom-left-radius: 6px;
+            box-shadow: inset 0 1px 1px rgba(255,255,255,0.05);
+        }
+
+        /* -----------------------------------------
+           NESTED CTA ARCHITECTURE (INPUT AREA)
+           ----------------------------------------- */
+        .input-area {
+            display: flex;
+            align-items: center;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 9999px;
+            padding: 4px;
+            padding-left: 20px;
+            margin-top: auto;
+            transform: translateY(16px);
+            opacity: 0;
+        }
+
+        .island-shell.expanded .input-area {
+            animation: messageReveal 0.8s var(--spring-ease) forwards;
+            animation-delay: 0.1s;
+        }
+
+        .input-area input {
+            flex-grow: 1;
+            background: transparent;
+            border: none;
+            color: white;
+            outline: none;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            font-size: 14px;
+            padding: 8px 0;
+        }
+        
+        .input-area input::placeholder {
+            color: rgba(255, 255, 255, 0.3);
+            font-weight: 400;
+        }
+
+        /* The Nested CTA Button-in-Button Pattern */
+        .btn-send-wrapper {
+            background: rgba(255,255,255,0.08);
+            border-radius: 50%;
+            width: 36px;
+            height: 36px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            transition: all 0.4s var(--spring-ease);
+        }
+
+        .input-area:focus-within {
+            border-color: rgba(255, 255, 255, 0.3);
+            background: rgba(255, 255, 255, 0.08);
+        }
+        .input-area:focus-within .btn-send-wrapper {
+            background: #fff;
+            color: #000;
+        }
+        .input-area:focus-within .btn-send-wrapper svg {
+            stroke: #000;
+        }
+
+        .btn-send-wrapper:hover {
+            transform: scale(0.92);
+        }
+        .btn-send-wrapper:hover svg {
+            transform: translate(2px, -2px) scale(1.05); /* Internal kinetic tension */
+        }
+        
+        .btn-send-wrapper svg {
+            width: 16px;
+            height: 16px;
+            stroke: #fff;
+            transition: all 0.4s var(--spring-ease);
+        }
+
+
+        /* -----------------------------------------
+           THEME MODES & AVATAR STATE ENGINE
+           ----------------------------------------- */
+        
+        /* THEME 1: SPECTRUM & STATES */
+        body.theme-spectrum { --bg-gradient: radial-gradient(circle at top, #1E1E2E 0%, #050505 100%); }
+
+        .theme-spectrum .state-idle .ai-avatar-inner {
+            background-color: rgba(255, 255, 255, 0.9);
+            box-shadow: 0 0 20px rgba(0, 240, 255, 0.6), 0 0 40px rgba(255, 0, 127, 0.4);
+            animation: spinEnergy 8s linear infinite;
+        }
+        .theme-spectrum .state-idle .ai-avatar {
+            animation: spectrumPulse 4s var(--spring-ease) infinite alternate;
+        }
+
+        .theme-spectrum .state-listening .ai-avatar-inner {
+            background-color: #00f0ff;
+            box-shadow: 0 0 20px #3b82f6, 0 0 30px #fff;
+            transform: scale(0.7);
+        }
+        .theme-spectrum .state-listening .ai-avatar {
+            animation: listenPulseBlue 1.5s infinite var(--spring-ease);
+        }
+
+        .theme-spectrum .state-thinking .ai-avatar-inner {
+            background-color: #e040fb;
+            box-shadow: 0 0 20px #7928ca, 0 0 30px #e040fb;
+            animation: spinEnergy 1.5s linear infinite;
+        }
+        .theme-spectrum .state-thinking .ai-avatar {
+            animation: thinkSpinPurple 2.5s infinite var(--spring-ease);
+        }
+
+        .theme-spectrum .state-speaking .ai-avatar-inner {
+            background-color: #00ff94;
+            box-shadow: 0 0 20px #f59e0b, 0 0 30px #fff;
+            transform: scale(0.9);
+        }
+        .theme-spectrum .state-speaking .ai-avatar {
+            animation: speakPulseGreen 1s infinite alternate;
+        }
+        
+        .theme-spectrum .state-speaking .ai-avatar-wrapper::before,
+        .theme-spectrum .state-speaking .ai-avatar-wrapper::after {
+            content: '';
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            border: 1px solid rgba(0,255,148,0.5);
+            animation: highEndRipple 1.4s infinite cubic-bezier(0.19, 1, 0.22, 1);
+            z-index: -1;
+        }
+        .theme-spectrum .state-speaking .ai-avatar-wrapper::after { animation-delay: 0.7s; }
+
+        @keyframes spinEnergy {
+            to { transform: rotate(360deg); }
+        }
+        @keyframes spectrumPulse {
+            0% { transform: scale(0.9); box-shadow: 0 0 10px rgba(255,255,255,0.1); }
+            100% { transform: scale(1.05); box-shadow: 0 0 20px rgba(255,255,255,0.3); }
+        }
+        @keyframes listenPulseBlue {
+            0% { transform: scale(1); box-shadow: 0 0 15px rgba(0,240,255,0.2); }
+            50% { transform: scale(1.1); box-shadow: 0 0 30px rgba(0,240,255,0.6); }
+            100% { transform: scale(1); box-shadow: 0 0 15px rgba(0,240,255,0.2); }
+        }
+        @keyframes thinkSpinPurple {
+            0% { transform: rotate(0deg) scale(1); border-radius: 50%; }
+            50% { transform: rotate(180deg) scale(0.9); border-radius: 40% 60% 55% 45% / 45% 45% 55% 55%; box-shadow: 0 0 25px rgba(224,64,251,0.5); }
+            100% { transform: rotate(360deg) scale(1); border-radius: 50%; }
+        }
+        @keyframes speakPulseGreen {
+            0% { transform: scale(1); box-shadow: 0 0 15px rgba(0,255,148,0.3); }
+            100% { transform: scale(1.1); box-shadow: 0 0 25px rgba(0,255,148,0.7); }
+        }
+
+
+        /* THEME 2: NEBULA CORE (Depth) */
+        body.theme-nebula { --bg-gradient: radial-gradient(circle at top, #10002B 0%, #000000 100%); }
+
+        .theme-nebula .ai-avatar {
+            background: #000;
+            border: 1px solid rgba(255,255,255,0.15);
+        }
+
+        .theme-nebula .state-idle .ai-avatar {
+            animation: nebulaBreathe 4s infinite alternate var(--spring-ease);
+        }
+
+        .theme-nebula .state-listening .ai-avatar {
+            animation: nebulaListen 1.5s infinite alternate var(--spring-ease);
+        }
+
+        .theme-nebula .state-thinking .ai-avatar {
+            animation: nebulaThink 2s infinite linear;
+            border-radius: 45% 55% 45% 55%;
+        }
+
+        .theme-nebula .state-speaking .ai-avatar {
+            animation: nebulaSpeak 0.8s infinite alternate var(--spring-ease);
+        }
+        
+        .theme-nebula .state-speaking .ai-avatar-wrapper::before,
+        .theme-nebula .state-speaking .ai-avatar-wrapper::after {
+            content: '';
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            border: 1px solid rgba(255,152,0,0.5);
+            animation: highEndRipple 1.4s infinite cubic-bezier(0.19, 1, 0.22, 1);
+            z-index: -1;
+        }
+        .theme-nebula .state-speaking .ai-avatar-wrapper::after { animation-delay: 0.7s; }
+
+        @keyframes nebulaBreathe {
+            0% { transform: scale(0.95); box-shadow: 0 0 15px #e91e63, 0 0 30px #ff9800; }
+            100% { transform: scale(1.05); box-shadow: 0 0 20px #ff9800, 0 0 40px #e91e63; }
+        }
+        @keyframes nebulaListen {
+            0% { transform: scale(1); box-shadow: 0 0 15px #00f0ff, 0 0 30px #e91e63; }
+            100% { transform: scale(1.1); box-shadow: 0 0 30px #e91e63, 0 0 50px #00f0ff; }
+        }
+        @keyframes nebulaThink {
+            0% { transform: rotate(0deg) scale(0.95); box-shadow: 0 0 15px #e040fb, 0 0 25px #ff9800; }
+            50% { transform: rotate(180deg) scale(1); box-shadow: 0 0 30px #ff9800, 0 0 40px #e040fb; }
+            100% { transform: rotate(360deg) scale(0.95); box-shadow: 0 0 15px #e040fb, 0 0 25px #ff9800; }
+        }
+        @keyframes nebulaSpeak {
+            0% { transform: scale(1); box-shadow: 0 0 10px #ff9800, 0 0 20px #e91e63; }
+            100% { transform: scale(1.05); box-shadow: 0 0 25px #ff9800, 0 0 45px #e91e63; }
+        }
+
+        @keyframes highEndRipple {
+            0% { transform: scale(0.8); opacity: 1; border-width: 2px; }
+            100% { transform: scale(2.2); opacity: 0; border-width: 0.5px; }
+        }
+
+
+        /* New Apple Intelligence style state animations */
+        .island-shell.state-idle .ai-avatar {
+            background: radial-gradient(circle at center, rgba(255,255,255,0.4), rgba(200,200,200,0.1));
+            box-shadow: 0 0 10px rgba(255,255,255,0.2);
+        }
+        
+        .island-shell.state-listening .ai-avatar {
+            background: radial-gradient(circle at center, rgba(50, 150, 255, 0.6), rgba(0, 50, 150, 0.2));
+            box-shadow: 0 0 20px rgba(50, 150, 255, 0.5);
+            animation: pulse-blue 1.5s infinite;
+        }
+        @keyframes pulse-blue { 0% { transform: scale(1); opacity: 0.8; } 50% { transform: scale(1.1); opacity: 1; } 100% { transform: scale(1); opacity: 0.8; } }
+        
+        .island-shell.state-thinking .ai-avatar {
+            background: radial-gradient(circle at center, rgba(200, 50, 255, 0.6), rgba(100, 0, 150, 0.2));
+            box-shadow: 0 0 30px rgba(200, 50, 255, 0.6);
+            animation: spin-purple 2s linear infinite;
+        }
+        @keyframes spin-purple { 0% { filter: hue-rotate(0deg); } 100% { filter: hue-rotate(360deg); } }
+        
+        .island-shell.state-speaking .ai-avatar {
+            background: radial-gradient(circle at center, rgba(255, 150, 50, 0.6), rgba(150, 50, 0, 0.2));
+            box-shadow: 0 0 25px rgba(255, 150, 50, 0.6);
+            animation: throb-orange 0.8s infinite alternate;
+        }
+        @keyframes throb-orange { 0% { transform: scale(1); } 100% { transform: scale(1.15); } }
+        
+        .island-shell.state-executing .ai-avatar {
+            background: radial-gradient(circle at center, rgba(50, 255, 150, 0.6), rgba(0, 150, 50, 0.2));
+            box-shadow: 0 0 25px rgba(50, 255, 150, 0.6);
+            animation: pulse-green 1s infinite alternate;
+        }
+        @keyframes pulse-green { 0% { transform: scale(1); } 100% { transform: scale(1.1); } }
+        
+        .island-shell.state-error .ai-avatar {
+            background: radial-gradient(circle at center, rgba(255, 50, 50, 0.6), rgba(150, 0, 0, 0.2));
+            box-shadow: 0 0 30px rgba(255, 50, 50, 0.6);
+            animation: shake-red 0.5s infinite;
+        }
+        @keyframes shake-red { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-2px); } 75% { transform: translateX(2px); } }
+
+        /* -----------------------------------------
+           DEMO CONTROLS (EXTERNAL)
+           ----------------------------------------- */
+        .demo-panel {
+            position: fixed;
+            bottom: 30px;
+            background: rgba(10, 10, 10, 0.4);
+            padding: 20px;
+            border-radius: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255,255,255,0.05);
+            align-items: center;
+            z-index: 100;
+        }
+        .demo-row { display: flex; gap: 12px; }
+        .demo-panel button {
+            padding: 10px 16px;
+            border-radius: 12px;
+            border: none;
+            cursor: pointer;
+            background: rgba(255,255,255,0.05);
+            color: rgba(255,255,255,0.7);
+            font-weight: 500;
+            font-size: 13px;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            transition: all 0.3s var(--spring-ease);
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+        .demo-panel button:hover {
+            background: rgba(255,255,255,0.12);
+            color: #fff;
+            transform: scale(0.96);
+        }
+        .demo-panel button.active, .demo-panel button.active-theme {
+            background: #fff;
+            color: #000;
+            border-color: #fff;
+        }
+    </style>
+</head>
+<body class="theme-spectrum">
+
+    <div class="island-shell state-idle" id="ai-island">
+        <div class="island-core">
+            
+            <div class="status-container">
+                <div class="ai-avatar-wrapper">
+                    <div class="ai-avatar"><div class="ai-avatar-inner"></div></div>
+                </div>
+                <div class="status-text" id="status-text">Idle</div>
+                <div class="controls">
+                    <input type="range" min="0" max="1" step="0.05" value="0.15" class="opacity-slider" id="opacity-slider" title="Adjust Transparency">
+                    <button class="btn-glass" id="voice-btn" title="Voice Input">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
+                    </button>
+                    <button class="btn-glass" id="toggle-btn" title="Expand/Collapse">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>
+                    </button>
+                </div>
+            </div>
+            
+            <div class="chat-content">
+                <div class="message-area" id="messages">
+                </div>
+                <div class="input-area">
+                    <input type="text" placeholder="Type a command or ask something..." id="command-input">
+                    <div class="btn-send-wrapper" title="Send" id="send-btn">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+
+
+    <script>
+        const island = document.getElementById('ai-island');
+        const statusText = document.getElementById('status-text');
+        const toggleBtn = document.getElementById('toggle-btn');
+        const messages = document.getElementById('messages');
+        const sendBtn = document.getElementById('send-btn');
+        const commandInput = document.getElementById('command-input');
+        const voiceBtn = document.getElementById('voice-btn');
+        const opacitySlider = document.getElementById('opacity-slider');
+
+        // Dynamically toggle click-through behavior based on hover state
+        if (window.api && window.api.setIgnoreMouseEvents) {
+            // Initially set the invisible background to click-through
+            window.api.setIgnoreMouseEvents(true, { forward: true });
+
+            island.addEventListener('mouseenter', () => {
+                window.api.setIgnoreMouseEvents(false);
+            });
+
+            island.addEventListener('mouseleave', () => {
+                window.api.setIgnoreMouseEvents(true, { forward: true });
+            });
+        }
+
+        opacitySlider.addEventListener('input', (e) => {
+            document.documentElement.style.setProperty('--glass-opacity', e.target.value);
+        });
+
+        toggleBtn.addEventListener('click', () => {
+            island.classList.toggle('expanded');
+        });
+
+        voiceBtn.addEventListener('click', () => {
+            setState('listening', document.querySelectorAll('.state-btn')[1]);
+            setTimeout(() => setState('thinking', document.querySelectorAll('.state-btn')[2]), 2000);
+            setTimeout(() => {
+                setState('speaking', document.querySelectorAll('.state-btn')[3]);
+                addMessage("ai", "Processing local voice input...");
+            }, 4500);
+            setTimeout(() => setState('idle', document.querySelectorAll('.state-btn')[0]), 7000);
+        });
+
+        sendBtn.addEventListener('click', handleSend);
+        commandInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') handleSend();
+        });
+
+        // IPC state sync
+        window.api.onAgentState((state) => {
+            console.log("State updated:", state);
+            setUIState(state.toLowerCase());
+        });
+        
+        function setUIState(state) {
+            islandShell.className = `island-shell state-${state}`;
+            if (state === 'expanded') {
+                islandShell.classList.add('expanded');
+                islandShell.classList.add('state-idle');
+            }
+        }
+
+        async function handleSend() {
+            const text = commandInput.value.trim();
+            if (text) {
+                if (!island.classList.contains('expanded')) {
+                    island.classList.add('expanded');
+                }
+                addMessage("user", text);
+                commandInput.value = '';
+                
+                setState('thinking');
+                
+                if (window.api && window.api.sendMessage) {
+                    try {
+                        const reply = await window.api.sendMessage(text);
+                        await processLLMResponse(reply);
+                    } catch (error) {
+                        setState('speaking');
+                        addMessage("ai", "Connection error: " + error);
+                        setTimeout(() => setState('idle'), 3000);
+                    }
+                } else {
+                    // Fallback for browser testing
+                    setTimeout(() => {
+                        setState('speaking');
+                        addMessage("ai", "API connection not established.");
+                        setTimeout(() => setState('idle'), 3000);
+                    }, 1000);
+                }
+            }
+        }
+
+        async function processLLMResponse(reply) {
+            if (!reply) return;
+            
+            if (reply.type === 'text') {
+                setState('speaking');
+                addMessage("ai", reply.content);
+                setTimeout(() => setState('idle'), 3000);
+            } 
+            else if (reply.type === 'tool_call') {
+                setState('speaking');
+                
+                // Add the explanatory text if any
+                if (reply.text) {
+                    addMessage("ai", reply.text);
+                }
+                
+                // Create Security Prompt UI
+                const promptDiv = document.createElement('div');
+                promptDiv.className = 'message ai-msg security-prompt';
+                promptDiv.style.border = '1px solid rgba(255,100,100,0.5)';
+                promptDiv.style.background = 'rgba(50,10,10,0.5)';
+                
+                let actionDesc = "I need to execute a system command:";
+                let actionPreview = reply.command;
+                
+                let args = {};
+                try {
+                    args = JSON.parse(reply.command);
+                } catch (e) {
+                    // Fallback if LLM just returned a raw string instead of JSON object
+                    args = { command: reply.command, x: 0, y: 0, text: reply.command };
+                }
+                
+                if (reply.name === "analyze_screen") {
+                    actionDesc = "📸 I need to capture a screenshot of your display:";
+                    actionPreview = "Action: Read Screen Pixels";
+                } else if (reply.name === "move_mouse_and_click") {
+                    actionDesc = "🖱️ I need to move your mouse and click:";
+                    actionPreview = `Target Coordinates: X: ${args.x}, Y: ${args.y}`;
+                } else if (reply.name === "type_keyboard") {
+                    actionDesc = "⌨️ I need to type using your keyboard:";
+                    actionPreview = `Text to type: "${args.text}"`;
+                } else if (reply.name === "run_terminal_command") {
+                    actionDesc = "💻 I need to execute a PowerShell command:";
+                    actionPreview = args.command || reply.command;
+                } else if (reply.name === "write_to_file") {
+                    actionDesc = "📝 I need to write a file to your computer:";
+                    actionPreview = `File: ${args.filepath}\n\n[Content hidden for brevity]`;
+                }
+                
+                promptDiv.innerHTML = `
+                    <div style="color: #ff6b6b; font-weight: 600; margin-bottom: 8px; font-size: 0.85rem;">⚠️ Security Authorization</div>
+                    <div style="font-size: 0.85rem; margin-bottom: 8px;">${actionDesc}</div>
+                    <pre style="background: rgba(0,0,0,0.3); padding: 8px; border-radius: 4px; font-family: monospace; font-size: 0.75rem; overflow-x: auto; margin-bottom: 12px; color: #a5d6ff;">${actionPreview}</pre>
+                    <div style="display: flex; gap: 8px;">
+                        <button class="btn-approve" style="flex: 1; padding: 6px; background: rgba(40,167,69,0.2); border: 1px solid rgba(40,167,69,0.5); color: #fff; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">Approve</button>
+                        <button class="btn-reject" style="flex: 1; padding: 6px; background: rgba(220,53,69,0.2); border: 1px solid rgba(220,53,69,0.5); color: #fff; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">Reject</button>
+                    </div>
+                `;
+                
+                messages.appendChild(promptDiv);
+                messages.scrollTop = messages.scrollHeight;
+                
+                // Attach event listeners
+                const btnApprove = promptDiv.querySelector('.btn-approve');
+                const btnReject = promptDiv.querySelector('.btn-reject');
+                
+                btnApprove.addEventListener('click', async () => {
+                    promptDiv.innerHTML = `<div style="color: #28a745; font-size: 0.85rem;">Command approved. Executing...</div>`;
+                    setState('thinking');
+                    try {
+                        const nextReply = await window.electronAPI.executeTool(reply.id, reply.name, reply.command, true);
+                        await processLLMResponse(nextReply);
+                    } catch (e) {
+                        addMessage("Execution failed: " + e, "ai-msg");
+                        setState('idle');
+                    }
+                });
+                
+                btnReject.addEventListener('click', async () => {
+                    promptDiv.innerHTML = `<div style="color: #dc3545; font-size: 0.85rem;">Command rejected.</div>`;
+                    setState('thinking');
+                    try {
+                        const nextReply = await window.electronAPI.executeTool(reply.id, reply.name, reply.command, false);
+                        await processLLMResponse(nextReply);
+                    } catch (e) {
+                        addMessage("Rejection failed: " + e, "ai-msg");
+                        setState('idle');
+                    }
+                });
+            }
+        }
+
+        function addMessage(sender, text) {
+            const msg = document.createElement('div');
+            
+            // Map "user" -> "user-msg", "ai" -> "ai-msg"
+            let className = sender;
+            if (sender === 'user') className = 'user-msg';
+            if (sender === 'ai') className = 'ai-msg';
+            
+            msg.className = `message ${className}`;
+            
+            let htmlContent = '';
+            
+            if (className.includes('ai-msg') && typeof text === 'string') {
+                const thoughtMatch = text.match(/<thought>([\s\S]*?)<\/thought>/);
+                if (thoughtMatch) {
+                    let safeThought = thoughtMatch[1]
+                        .replace(/&/g, "&amp;")
+                        .replace(/</g, "&lt;")
+                        .replace(/>/g, "&gt;")
+                        .replace(/\n/g, '<br>');
+                        
+                    htmlContent += `<div class="thought-process">
+                        <div class="thought-header">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 15h2v2h-2v-2zm1-12c-2.21 0-4 1.79-4 4h2c0-1.1.9-2 2-2s2 .9 2 2c0 2-3 1.75-3 5h2c0-2.25 3-2.5 3-5 0-2.21-1.79-4-4-4z"/></svg>
+                            Analyzing Screen & Thinking...
+                        </div>
+                        <div class="thought-content">${safeThought}</div>
+                    </div>`;
+                    text = text.replace(/<thought>[\s\S]*?<\/thought>/, '').trim();
+                }
+            }
+            
+            // Basic markdown support for bolding and code blocks
+            let formattedText = text;
+            if (typeof text === 'string') {
+                // Escape HTML first
+                formattedText = formattedText
+                    .replace(/&/g, "&amp;")
+                    .replace(/</g, "&lt;")
+                    .replace(/>/g, "&gt;");
+                    
+                formattedText = formattedText.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+                // Format code blocks (handling multiline as well)
+                formattedText = formattedText.replace(/```([\s\S]*?)```/g, '<div style="background: rgba(0,0,0,0.3); padding: 8px; border-radius: 4px; font-family: monospace; overflow-x: auto; margin: 8px 0;">$1</div>');
+                formattedText = formattedText.replace(/`(.*?)`/g, '<span style="background: rgba(255,255,255,0.1); padding: 2px 4px; border-radius: 4px; font-family: monospace;">$1</span>');
+                formattedText = formattedText.replace(/\n/g, '<br>');
+            }
+
+            htmlContent += `<div class="message-content">${formattedText}</div>`;
+            msg.innerHTML = htmlContent;
+
+            messages.appendChild(msg);
+            
+            // Re-trigger animation
+            msg.style.animation = 'none';
+            msg.offsetHeight; 
+            msg.style.animation = null;
+            
+            messages.scrollTop = messages.scrollHeight;
+        }
+
+        function setState(state, btnElement) {
+            document.querySelectorAll('.state-btn').forEach(b => b.classList.remove('active'));
+            if(btnElement) btnElement.classList.add('active');
+
+            island.classList.remove('state-idle', 'state-listening', 'state-thinking', 'state-speaking');
+            island.classList.add(`state-${state}`);
+            
+            switch(state) {
+                case 'idle': statusText.textContent = 'Idle'; break;
+                case 'listening': statusText.textContent = 'Listening...'; break;
+                case 'thinking': statusText.textContent = 'Processing request...'; break;
+                case 'speaking': statusText.textContent = 'Speaking...'; break;
+            }
+        }
+
+        function setTheme(themeClass, btnElement) {
+            document.body.className = themeClass;
+            document.querySelectorAll('.theme-btn').forEach(b => b.classList.remove('active-theme'));
+            if(btnElement) btnElement.classList.add('active-theme');
+        }
+
+        // Boot sequence
+        setTimeout(() => {
+            island.classList.add('expanded');
+            setState('thinking');
+            setTimeout(() => {
+                setState('idle');
+                addMessage("System online. Waiting for commands.", "ai-msg");
+            }, 800);
+        }, 500);
+    </script>
+</body>
+</html>

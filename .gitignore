@@ -1,0 +1,8 @@
+node_modules/
+.env
+suis-error.log
+.agents
+.specstory
+.vscode
+design_and_memory
+*.exe
