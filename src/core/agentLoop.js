@@ -4,6 +4,7 @@ const diContainer = require('./diContainer');
 const planner = require('./planner');
 const executor = require('../tools/executor');
 const registry = require('../tools/registry');
+const convLogger = require('../utils/conversationLogger');
 
 class AgentLoop {
     constructor() {
@@ -30,6 +31,7 @@ class AgentLoop {
         eventBus.publish('log', { level: 'INFO', module: 'AgentLoop', message: isResume ? 'Resuming execution loop' : 'Starting new execution loop' });
 
         if (!isResume && request) {
+            convLogger.logUserMessage(request);
             memoryManager.addMessage('user', request);
             eventBus.publish('state:change', 'Planning');
 
@@ -60,6 +62,7 @@ class AgentLoop {
 
                 if (response.type === 'text') {
                     // LLM decided to speak to the user, ending the loop
+                    convLogger.logAssistantText(response.content || '');
                     memoryManager.addMessage('assistant', response.content);
                     eventBus.publish('state:change', 'Speaking');
                     return response;
@@ -105,6 +108,7 @@ class AgentLoop {
                     if (!primaryToolCall.function.arguments) {
                         primaryToolCall.function.arguments = {};
                     }
+                    convLogger.logToolCall(primaryToolCall.function.name, primaryToolCall.function.arguments);
                     const execResult = await executor.executeToolCall(primaryToolCall.function.name, primaryToolCall.function.arguments);
 
                     if (execResult && execResult.requiresUIApproval) {
@@ -120,6 +124,8 @@ class AgentLoop {
                             _iterations: iterations
                         };
                     }
+
+                    convLogger.logToolOutput(primaryToolCall.function.name, this._serializeToolResult(execResult));
 
                     // Native tool result injected directly into history
                     memoryManager.addMessage({

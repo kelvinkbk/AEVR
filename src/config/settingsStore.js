@@ -20,9 +20,11 @@ class SettingsStore {
             },
             ai: {
                 provider: 'Ollama', // 'Ollama', 'OpenAI', 'Anthropic'
-                model: 'llama3.2',
+                model: 'llava:latest',
                 temperature: 0.1,
                 maxTokens: 4096,
+                baseUrl: 'http://localhost:11434/v1',
+                apiKey: '',
                 developerMode: false
             },
             permissions: {

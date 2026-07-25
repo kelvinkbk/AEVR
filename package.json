@@ -22,7 +22,10 @@
   "dependencies": {
     "@computer-use/nut-js": "^4.2.0",
     "@heyputer/puter.js": "^2.5.4",
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "cors": "^2.8.6",
     "dotenv": "^17.4.2",
+    "express": "^5.2.1",
     "openai": "^6.49.0"
   }
 }

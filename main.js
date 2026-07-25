@@ -1,14 +1,14 @@
 require('dotenv').config();
 const { app, BrowserWindow, Tray, Menu, nativeImage, screen } = require('electron');
 const path = require('path');
-const config = require('./src/config/config');
+const config = require('./src/config/config');                                                                                                                                  
 const settingsStore = require('./src/config/settingsStore');
 const logger = require('./src/utils/logger');
 const eventBus = require('./src/core/EventBus');
 const { registerIpcHandlers } = require('./src/ipc/ipcHandlers');
 const metrics = require('./src/utils/metrics');
 const backgroundWorkerPool = require('./src/workers/backgroundWorker');
-const pluginManager = require('./src/plugins/PluginManager');
+const pluginManager = require('./src/plugins/pluginManager');
 
 let tray = null;
 let mainWindow = null;

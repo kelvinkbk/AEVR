@@ -7,7 +7,8 @@ class OllamaProvider extends ProviderInterface {
     constructor() {
         super();
         this.baseUrl = settingsStore.get('ai.baseUrl') || 'http://localhost:11434/v1';
-        this.model = settingsStore.get('ai.model') || 'llama3.2';
+        const configuredModel = settingsStore.get('ai.model') || 'llama3.2';
+        this.model = configuredModel.includes('llama3.2-vision') ? 'llava:latest' : configuredModel;
         this.toolCallParser = new OpenSourceToolCallParser();
         
         this.capabilities = {

@@ -6,3 +6,16 @@ suis-error.log
 .vscode
 design_and_memory
 *.exe
+
+# MCP Bridge Server
+mcp-server.js
+mcp-stdio.js
+
+# Logs
+*.log
+omniroute-request-logs-*.json
+
+# OS/Editor Files
+.idea/
+.DS_Store
+Thumbs.db

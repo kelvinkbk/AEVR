@@ -3,11 +3,16 @@ const eventBus = require('../core/EventBus');
 const memoryManager = require('../memory/memoryManager');
 const agentLoop = require('../core/agentLoop');
 const registry = require('../tools/registry');
+const convLogger = require('../utils/conversationLogger');
 
 function registerIpcHandlers() {
     ipcMain.on('set-ignore-mouse-events', (event, ignore, options) => {
         const win = BrowserWindow.fromWebContents(event.sender);
         if (win) win.setIgnoreMouseEvents(ignore, options);
+    });
+
+    ipcMain.handle('get-log-path', () => {
+        return convLogger.getLogFilePath();
     });
 
     ipcMain.handle('send-message', async (event, message) => {
@@ -30,6 +35,7 @@ function registerIpcHandlers() {
 
     ipcMain.handle('execute-tool', async (event, toolCallId, name, command, approved, currentIterations = 0) => {
         if (!approved) {
+            convLogger.logToolOutput(name, 'REJECTED by user', { approved: false });
             memoryManager.addMessage({
                 role: 'tool',
                 tool_call_id: toolCallId,
@@ -49,6 +55,7 @@ function registerIpcHandlers() {
             const tool = require('../tools/registry').getTool(name);
             const result = await tool.execute(args);
             
+            convLogger.logToolOutput(name, typeof result === 'string' ? result : JSON.stringify(result, null, 2), { approved: true });
             memoryManager.addMessage({
                 role: 'tool',
                 tool_call_id: toolCallId,
