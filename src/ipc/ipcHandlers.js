@@ -15,21 +15,11 @@ function registerIpcHandlers() {
         try {
             stateMachine.setState(stateMachine.states.LISTENING);
             
-            let screenshotDataUrl = null;
-            try {
-                if (agentLoop.capabilities.supportsVision) {
-                    const sources = await desktopCapturer.getSources({ types: ['screen'], thumbnailSize: { width: 1920, height: 1080 } });
-                    if (sources.length > 0) {
-                        screenshotDataUrl = sources[0].thumbnail.toDataURL();
-                    }
-                }
-            } catch (captureErr) {
-                logger.error('IPCHandler', "Screen capture failed", captureErr);
-            }
-            
             stateMachine.setState(stateMachine.states.THINKING);
             
-            const result = await agentLoop.step(message, screenshotDataUrl);
+            // Note: screenshotDataUrl is now null. 
+            // The AI will use the analyze_screen tool if it needs to see the display.
+            const result = await agentLoop.step(message, null);
             
             stateMachine.setState(stateMachine.states.SPEAKING);
             return result;

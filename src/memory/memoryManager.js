@@ -9,6 +9,7 @@ class MemoryManager {
         };
         this.workingMemory = [];
         this.maxTokens = config.memory.maxWorkingMemoryTokens;
+        this.latestScreenshot = null;
         
         // Approximate token counting (1 token ≈ 4 chars)
         this.getTokenCount = (text) => Math.ceil((text || '').length / 4);
@@ -35,10 +36,11 @@ class MemoryManager {
     getContextForModel(screenshotDataUrl = null) {
         let context = [this.systemPrompt];
         
-        // Deep copy working memory so we don't accidentally mutate it
         let memoryCopy = JSON.parse(JSON.stringify(this.workingMemory));
 
-        if (screenshotDataUrl) {
+        const screenshotToUse = screenshotDataUrl || this.latestScreenshot;
+
+        if (screenshotToUse) {
             // Append screenshot to the last user message if exists
             let lastUserMsg = [...memoryCopy].reverse().find(m => m.role === 'user');
             if (lastUserMsg) {
@@ -52,10 +54,12 @@ class MemoryManager {
                     role: 'user', 
                     content: [
                         { type: 'text', text: "Here is my screen." },
-                        { type: 'image_url', image_url: { url: screenshotDataUrl } }
+                        { type: 'image_url', image_url: { url: screenshotToUse } }
                     ]
                 });
             }
+            // Clear it after using it so it doesn't get sent on subsequent unrelated turns
+            this.latestScreenshot = null;
         }
 
         return context.concat(memoryCopy);
