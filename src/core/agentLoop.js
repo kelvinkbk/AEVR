@@ -39,19 +39,18 @@ class AgentLoop {
                 const response = await provider.chat(context, tools);
 
                 if (response.type === 'text') {
-                    // Fallback for smaller models (like llama3.2) that might output tool JSON in the text body
-                    const jsonMatch = response.content.match(/```json\s*(\{[\s\S]*?\})\s*```/) || response.content.match(/(\{\s*"command"\s*:[\s\S]*?\})/);
+                    // Fallback parser for explicitly formatted JSON tool blocks
+                    const jsonMatch = response.content.match(/```json\s*(\{[\s\S]*?\})\s*```/) || response.content.match(/(\{\s*"name"\s*:[\s\S]*?\})/);
                     
                     if (jsonMatch) {
                         try {
                             const rawToolCall = JSON.parse(jsonMatch[1]);
-                            if (rawToolCall.command) {
-                                // Convert to a tool_call response so the rest of the loop handles it properly
+                            if (rawToolCall.name && rawToolCall.command) {
                                 response.type = 'tool_call';
-                                response.name = 'run_terminal_command';
-                                response.command = { command: rawToolCall.command };
+                                response.name = rawToolCall.name;
+                                response.command = rawToolCall.command;
                                 response.text = response.content; 
-                                eventBus.publish('log', { level: 'INFO', module: 'AgentLoop', message: 'Fallback parsed raw JSON into tool call' });
+                                eventBus.publish('log', { level: 'INFO', module: 'AgentLoop', message: `Fallback parsed raw JSON into tool call: ${response.name}` });
                             }
                         } catch (e) {
                             // ignore parse error and fall through to text
