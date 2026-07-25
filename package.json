@@ -6,7 +6,13 @@
   "scripts": {
     "start": "electron ."
   },
-  "keywords": ["ai", "assistant", "electron", "desktop", "llm"],
+  "keywords": [
+    "ai",
+    "assistant",
+    "electron",
+    "desktop",
+    "llm"
+  ],
   "author": "AEVR Team",
   "license": "MIT",
   "type": "commonjs",
@@ -15,6 +21,7 @@
   },
   "dependencies": {
     "@computer-use/nut-js": "^4.2.0",
+    "@heyputer/puter.js": "^2.5.4",
     "dotenv": "^17.4.2",
     "openai": "^6.49.0"
   }

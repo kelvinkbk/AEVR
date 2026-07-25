@@ -30,7 +30,11 @@ function registerIpcHandlers() {
 
     ipcMain.handle('execute-tool', async (event, toolCallId, name, command, approved, currentIterations = 0) => {
         if (!approved) {
-            memoryManager.addMessage('tool', `User REJECTED tool execution: ${name}`);
+            memoryManager.addMessage({
+                role: 'tool',
+                tool_call_id: toolCallId,
+                content: `User REJECTED tool execution: ${name}`
+            });
             // Resume the loop so the LLM knows it was rejected and can plan accordingly
             return await agentLoop.step(null, true, currentIterations);
         }
@@ -45,14 +49,22 @@ function registerIpcHandlers() {
             const tool = require('../tools/registry').getTool(name);
             const result = await tool.execute(args);
             
-            memoryManager.addMessage('tool', `Result of ${name}:\n${result}`);
+            memoryManager.addMessage({
+                role: 'tool',
+                tool_call_id: toolCallId,
+                content: typeof result === 'string' ? result : JSON.stringify(result, null, 2)
+            });
             
             // Resume loop autonomously
             return await agentLoop.step(null, true, currentIterations);
             
         } catch (error) {
             eventBus.publish('state:change', 'Error');
-            memoryManager.addMessage('tool', `Execution failed: ${error.message}`);
+            memoryManager.addMessage({
+                role: 'tool',
+                tool_call_id: toolCallId,
+                content: `Execution failed: ${error.message}`
+            });
             eventBus.publish('log', { level: 'ERROR', module: 'IPCHandler', message: 'Tool execution error', meta: { errorMsg: error.message } });
             
             // Resume loop so LLM can recover from the error

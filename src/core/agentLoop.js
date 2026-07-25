@@ -10,6 +10,22 @@ class AgentLoop {
         this.maxIterations = 10;
     }
 
+    _serializeToolResult(result) {
+        if (typeof result === 'string') {
+            return result;
+        }
+
+        if (result === null || result === undefined) {
+            return '';
+        }
+
+        try {
+            return JSON.stringify(result, null, 2);
+        } catch (error) {
+            return String(result);
+        }
+    }
+
     async step(request, isResume = false, currentIterations = 0) {
         eventBus.publish('log', { level: 'INFO', module: 'AgentLoop', message: isResume ? 'Resuming execution loop' : 'Starting new execution loop' });
         
@@ -45,34 +61,32 @@ class AgentLoop {
                 }
 
                 if (response.type === 'tool_call') {
-                    // Inject the assistant's tool call into native history to maintain context loop
-                    memoryManager.addMessage({
+                    const assistantMessage = response.assistantMessage || {
                         role: 'assistant',
-                        content: response.text || null,
+                        content: response.text || '',
                         tool_calls: [{
                             id: response.id || `call_${Date.now()}`,
                             type: 'function',
                             function: {
                                 name: response.name,
-                                arguments: typeof response.command === 'string' ? response.command : JSON.stringify(response.command)
+                                arguments: response.command || {}
                             }
                         }]
-                    });
+                    };
+
+                    memoryManager.addMessage(assistantMessage);
 
                     eventBus.publish('state:change', 'Executing');
-                    
-                    let args = {};
-                    try { args = typeof response.command === 'string' ? JSON.parse(response.command) : response.command; } 
-                    catch (e) { args = { command: response.command }; }
 
-                    const execResult = await executor.executeToolCall(response.name, args);
+                    const primaryToolCall = response.toolCall || assistantMessage.tool_calls[0];
+                    const execResult = await executor.executeToolCall(primaryToolCall.function.name, primaryToolCall.function.arguments || {});
 
                     if (execResult && execResult.requiresUIApproval) {
                         eventBus.publish('state:change', 'Waiting Approval');
                         // Return control to UI to ask for permission, passing current iteration state
                         return {
                             type: 'tool_call', // Using tool_call type so UI parses it as a permission prompt
-                            id: response.id || `call_${Date.now()}`,
+                            id: primaryToolCall.id,
                             name: execResult.toolName,
                             command: JSON.stringify(execResult.args),
                             text: execResult.message,
@@ -84,9 +98,8 @@ class AgentLoop {
                     // Native tool result injected directly into history
                     memoryManager.addMessage({
                         role: 'tool',
-                        tool_call_id: response.id || `call_${Date.now()}`,
-                        name: response.name,
-                        content: String(execResult)
+                        tool_call_id: primaryToolCall.id,
+                        content: this._serializeToolResult(execResult)
                     });
                     
                     continue; // Jump to next loop iteration

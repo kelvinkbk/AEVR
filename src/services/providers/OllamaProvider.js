@@ -1,12 +1,14 @@
 const ProviderInterface = require('./ProviderInterface');
 const settingsStore = require('../../config/settingsStore');
 const logger = require('../../utils/logger');
+const OpenSourceToolCallParser = require('./OpenSourceToolCallParser');
 
 class OllamaProvider extends ProviderInterface {
     constructor() {
         super();
         this.baseUrl = settingsStore.get('ai.baseUrl') || 'http://localhost:11434/v1';
         this.model = settingsStore.get('ai.model') || 'llama3.2';
+        this.toolCallParser = new OpenSourceToolCallParser();
         
         this.capabilities = {
             supportsVision: true, // Assuming llama3.2-vision or similar
@@ -47,11 +49,15 @@ class OllamaProvider extends ProviderInterface {
         const payload = {
             model: this.model,
             messages: messages,
-            temperature: 0.1
+            stream: false,
+            options: {
+                temperature: tools && tools.length > 0 ? 0 : 0.1
+            }
         };
 
         if (tools && tools.length > 0) {
             payload.tools = tools;
+            payload.format = 'json';
         }
 
         try {
@@ -67,24 +73,7 @@ class OllamaProvider extends ProviderInterface {
             }
 
             const data = await response.json();
-            const choice = data.choices[0];
-            const msg = choice.message;
-
-            if (msg.tool_calls && msg.tool_calls.length > 0) {
-                const toolCall = msg.tool_calls[0];
-                return {
-                    type: 'tool_call',
-                    id: toolCall.id,
-                    name: toolCall.function.name,
-                    command: toolCall.function.arguments,
-                    text: msg.content // Sometimes models provide thought text before a tool call
-                };
-            }
-
-            return {
-                type: 'text',
-                content: msg.content
-            };
+            return this.toolCallParser.parse(data);
         } catch (error) {
             logger.error('OllamaProvider', 'Chat execution failed', error);
             throw error;
