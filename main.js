@@ -107,6 +107,8 @@ function createTray() {
   });
 }
 
+app.disableHardwareAcceleration();
+
 app.whenReady().then(() => {
   // Always create the window immediately so the user isn't stuck with a silent background process
   const startTimeMs = Date.now();

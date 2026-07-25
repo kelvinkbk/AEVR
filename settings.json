@@ -3,7 +3,7 @@
     "theme": "spectrum",
     "accent": "cyan",
     "alwaysOnTop": true,
-    "trayMode": true,
+    "trayMode": false,
     "launchAtStartup": false
   },
   "ai": {
