@@ -6,9 +6,9 @@ const OllamaProvider = require('./OllamaProvider');
 class ProviderFactory {
     constructor() {
         this.providers = new Map();
-        
+
         // Register default providers
-        this.register(new OllamaProvider());
+        this.register(OllamaProvider);
         // More will be registered here (OpenAIProvider, etc)
     }
 

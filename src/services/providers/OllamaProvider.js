@@ -51,13 +51,12 @@ class OllamaProvider extends ProviderInterface {
             messages: messages,
             stream: false,
             options: {
-                temperature: tools && tools.length > 0 ? 0 : 0.1
+                temperature: tools && tools.length > 0 ? 0.1 : 0.5
             }
         };
 
         if (tools && tools.length > 0) {
             payload.tools = tools;
-            payload.format = 'json';
         }
 
         try {
@@ -81,4 +80,4 @@ class OllamaProvider extends ProviderInterface {
     }
 }
 
-module.exports = OllamaProvider;
+module.exports = new OllamaProvider();

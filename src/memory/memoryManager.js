@@ -1,28 +1,21 @@
 const config = require('../config/config');
 const eventBus = require('../core/EventBus');
 const backgroundWorker = require('../workers/backgroundWorker');
+const registry = require('../tools/registry');
 
 class MemoryManager {
     constructor() {
-        this.systemPrompt = { 
-            role: 'system', 
+        this.systemPrompt = {
+            role: 'system',
             content: `You are AEVR, a premium AI operating assistant on the desktop.
 
-Use a ReAct-style loop internally: think privately, choose one action, observe the result, then continue.
-
-Response contract:
-Return exactly one JSON object and nothing else.
-
-Valid outputs:
-- Final answer: {"kind":"final","content":"..."}
-- Tool request: {"kind":"tool_call","content":"","tool_calls":[{"id":"call_1","type":"function","function":{"name":"tool_name","arguments":{...}}}]}
+CRITICAL INSTRUCTION: You have access to native tools. You MUST invoke tools to interact with the system. DO NOT roleplay, simulate, or pretend to execute commands. For example, if asked to "open notepad", you MUST actually invoke the run_terminal_command tool with "Start-Process notepad.exe", rather than just saying "Notepad is open".
 
 Rules:
-- Never emit markdown, fenced code blocks, or raw tool code.
-- Never serialize tool calls inside content as plain text.
-- Use exactly one tool call per turn unless the runtime explicitly asks for more.
-- Put tool arguments in an object, not a string.
-- Keep content empty when requesting a tool.`
+- Always use exactly one tool per turn.
+- Put tool arguments in an object.
+- For screenshots, use analyze_screen to see what's on screen first.
+- To execute a tool, you MUST output a JSON object wrapped in <tool_call> tags. Example: <tool_call>{"name": "run_terminal_command", "arguments": {"command": "chrome.exe"}}</tool_call>`
         };
         this.workingMemory = [];
         this.maxTokens = config.memory.maxWorkingMemoryTokens;
@@ -54,9 +47,29 @@ Rules:
     }
 
     getContextForModel(screenshotDataUrl = null) {
-        let context = [this.systemPrompt];
+        let systemPromptCopy = JSON.parse(JSON.stringify(this.systemPrompt));
+        const toolSchemas = registry.getSchemas();
+        systemPromptCopy.content += `\n\nDetailed Tool Schemas:\n${JSON.stringify(toolSchemas, null, 2)}`;
         
+        let context = [systemPromptCopy];
+
         let memoryCopy = JSON.parse(JSON.stringify(this.workingMemory));
+
+        // Normalize tool_calls for Ollama: convert arguments to JSON strings
+        memoryCopy = memoryCopy.map(msg => {
+            if (msg.tool_calls && Array.isArray(msg.tool_calls)) {
+                msg.tool_calls = msg.tool_calls.map(tc => ({
+                    ...tc,
+                    function: {
+                        ...tc.function,
+                        arguments: typeof tc.function.arguments === 'object'
+                            ? JSON.stringify(tc.function.arguments)
+                            : tc.function.arguments
+                    }
+                }));
+            }
+            return msg;
+        });
 
         const screenshotToUse = screenshotDataUrl || this.latestScreenshot;
 
@@ -66,12 +79,12 @@ Rules:
             if (lastUserMsg) {
                 lastUserMsg.content = [
                     { type: 'text', text: lastUserMsg.content },
-                    { type: 'image_url', image_url: { url: screenshotDataUrl } }
+                    { type: 'image_url', image_url: { url: screenshotToUse } }
                 ];
             } else {
                 // Or create a new one
-                context.push({ 
-                    role: 'user', 
+                context.push({
+                    role: 'user',
                     content: [
                         { type: 'text', text: "Here is my screen." },
                         { type: 'image_url', image_url: { url: screenshotToUse } }

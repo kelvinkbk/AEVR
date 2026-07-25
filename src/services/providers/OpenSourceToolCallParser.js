@@ -15,15 +15,57 @@ class OpenSourceToolCallParser {
         const parsed = this._parseJsonEnvelope(content);
         if (parsed) {
             if (this._looksLikeToolCallEnvelope(parsed)) {
-                const toolCalls = this._normalizeToolCalls(parsed.tool_calls || parsed.toolCalls || parsed.tool_call || parsed.toolCall || parsed);
+                const toolCalls = this._normalizeToolCalls(parsed.tool_calls || parsed.toolCalls || parsed.tool_call || parsed.toolCall || [parsed]);
                 if (toolCalls.length > 0) {
                     return this._buildToolCallResponse({ ...parsed, content: parsed.content || '' }, toolCalls);
                 }
             }
 
             const finalText = this._extractFinalText(parsed);
-            if (typeof finalText === 'string') {
+            if (typeof finalText === 'string' && finalText.length > 0) {
                 return { type: 'text', content: finalText };
+            }
+        }
+
+        // Fallback for XML tool calls generated in content text by Ollama models
+        const xmlMatch = content.match(/<tool_call>\s*([\s\S]*?)(?:<\/tool_call>|$)/i);
+        if (xmlMatch) {
+            const jsonStr = xmlMatch[1].trim();
+            const parsedXmlJson = this._safeJsonParse(jsonStr);
+            if (parsedXmlJson) {
+                const toolCalls = this._normalizeToolCalls(parsedXmlJson);
+                if (toolCalls.length > 0) {
+                    return this._buildToolCallResponse({ content: content.replace(xmlMatch[0], '').trim() }, toolCalls);
+                }
+            }
+        }
+
+        // Fallback for Llama 3.2 vision hallucinated screen_capture tag
+        if (content.includes('<screen_capture>') || content.includes('</screen_capture>')) {
+            const toolCalls = this._normalizeToolCalls({ name: 'analyze_screen', arguments: {} });
+            if (toolCalls.length > 0) {
+                return this._buildToolCallResponse({ content: content.replace(/<screen_capture>.*?<\/screen_capture>/gi, '').trim() }, toolCalls);
+            }
+        }
+
+        // Fallback for Python-style native tool calls generated in content text by Ollama models
+        const pythonMatch = content.match(/([a-zA-Z0-9_]+)\s*\(\s*(.*?)\s*\)/s);
+        if (pythonMatch) {
+            const name = pythonMatch[1];
+            const argsString = pythonMatch[2];
+            const args = {};
+            // Naive kwargs parser: key="value" or key='value'
+            const kwargRegex = /([a-zA-Z0-9_]+)\s*=\s*["']([^"']*)["']/g;
+            let kwargMatch;
+            while ((kwargMatch = kwargRegex.exec(argsString)) !== null) {
+                args[kwargMatch[1]] = kwargMatch[2];
+            }
+            // Only parse it as a tool if we found arguments or the arg string was empty
+            if (Object.keys(args).length > 0 || argsString.trim() === '') {
+                const toolCalls = this._normalizeToolCalls({ name, arguments: args });
+                if (toolCalls.length > 0) {
+                    return this._buildToolCallResponse({ content: content.replace(pythonMatch[0], '').trim() }, toolCalls);
+                }
             }
         }
 
@@ -65,16 +107,16 @@ class OpenSourceToolCallParser {
             : rawToolCall;
 
         const functionName = functionBlock && typeof functionBlock === 'object'
-            ? functionBlock.name || rawToolCall?.name
-            : rawToolCall?.name;
+            ? functionBlock.name || rawToolCall?.name || rawToolCall?.tool_name
+            : rawToolCall?.name || rawToolCall?.tool_name;
 
         if (!functionName) {
             return null;
         }
 
         const rawArguments = functionBlock && typeof functionBlock === 'object'
-            ? functionBlock.arguments !== undefined ? functionBlock.arguments : rawToolCall?.arguments
-            : rawToolCall?.arguments;
+            ? (functionBlock.arguments !== undefined ? functionBlock.arguments : (functionBlock.parameters !== undefined ? functionBlock.parameters : rawToolCall?.arguments || rawToolCall?.parameters))
+            : rawToolCall?.arguments || rawToolCall?.parameters;
 
         const normalizedArguments = this._normalizeArguments(rawArguments);
 
@@ -95,18 +137,18 @@ class OpenSourceToolCallParser {
 
         if (typeof rawArguments === 'string') {
             const parsed = this._safeJsonParse(rawArguments);
-            if (parsed !== null) {
+            if (parsed !== null && typeof parsed === 'object') {
                 return parsed;
             }
 
-            return { command: rawArguments };
+            return {};
         }
 
         if (typeof rawArguments === 'object' && !Array.isArray(rawArguments)) {
             return rawArguments;
         }
 
-        return { value: rawArguments };
+        return {};
     }
 
     _parseJsonEnvelope(content) {
@@ -210,6 +252,10 @@ class OpenSourceToolCallParser {
         }
 
         if (parsed.tool_call || parsed.toolCall) {
+            return true;
+        }
+
+        if (parsed.tool_name && parsed.arguments !== undefined) {
             return true;
         }
 

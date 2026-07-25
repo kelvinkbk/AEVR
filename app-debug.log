@@ -1,0 +1,32 @@
+
+> aevr-desktop@1.0.0 start
+> electron .
+
+
+◇ injected env (1) from .env // tip: ⌘ custom filepath { path: '/custom/path/.env' }
+◇ injected env (0) from .env // tip: ◈ secrets for agents [www.dotenvx.com]
+[2026-07-25T11:19:34.452Z] [INFO] [ProviderFactory] Registered provider: Ollama
+[2026-07-25T11:19:34.453Z] [INFO] [DependencyInjector] Initialized
+[2026-07-25T11:19:34.475Z] [INFO] [Main] Initializing AEVR Application...
+[2026-07-25T11:19:34.713Z] [INFO] [Main] Main window created successfully
+[2026-07-25T11:19:34.749Z] [INFO] [PluginManager] Discovering plugins...
+[2026-07-25T11:19:34.765Z] [INFO] [ToolRegistry] Registered tool: read_file (Categories: )
+[2026-07-25T11:19:34.767Z] [INFO] [ToolRegistry] Registered tool: write_to_file (Categories: )
+[2026-07-25T11:19:34.769Z] [INFO] [PluginManager] Successfully loaded plugin: filesystem
+[2026-07-25T11:19:34.779Z] [INFO] [ToolRegistry] Registered tool: run_terminal_command (Categories: )
+[2026-07-25T11:19:34.781Z] [INFO] [PluginManager] Successfully loaded plugin: system
+[2026-07-25T11:19:34.792Z] [INFO] [ToolRegistry] Registered tool: analyze_screen (Categories: )
+[2026-07-25T11:19:34.794Z] [INFO] [PluginManager] Successfully loaded plugin: vision
+[2026-07-25T11:19:34.801Z] [INFO] [DependencyInjector] Registered service: provider
+[2026-07-25T11:19:34.802Z] [INFO] [Main] AI Provider initialized successfully
+[2026-07-25T11:19:45.870Z] [INFO] [Planner] Creating execution plan for request
+[2026-07-25T11:19:49.609Z] [INFO] [Planner] Successfully generated plan with 3 steps.
+[2026-07-25T11:19:55.558Z] [INFO] [Planner] Creating execution plan for request
+[2026-07-25T11:19:57.821Z] [INFO] [Planner] Successfully generated plan with 1 steps.
+[2026-07-25T11:20:17.842Z] [INFO] [Planner] Creating execution plan for request
+[2026-07-25T11:20:23.315Z] [WARN] [Planner] Failed to parse JSON plan, falling back to raw text
+[2026-07-25T11:21:05.180Z] [INFO] [Planner] Creating execution plan for request
+[2026-07-25T11:21:12.734Z] [INFO] [Planner] Successfully generated plan with 5 steps.
+[2026-07-25T11:21:41.451Z] [INFO] [Planner] Creating execution plan for request
+[2026-07-25T11:21:47.088Z] [WARN] [Planner] Failed to parse JSON plan, falling back to raw text
+[2026-07-25T11:30:22.686Z] [INFO] [SettingsStore] Settings saved

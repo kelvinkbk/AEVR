@@ -1,0 +1,22 @@
+
+> aevr-desktop@1.0.0 start
+> electron .
+
+
+◇ injected env (1) from .env // tip: ◈ encrypted .env [www.dotenvx.com]
+◇ injected env (0) from .env // tip: ⌘ override existing { override: true }
+[2026-07-25T11:17:47.639Z] [INFO] [ProviderFactory] Registered provider: Ollama
+[2026-07-25T11:17:47.642Z] [INFO] [DependencyInjector] Initialized
+[2026-07-25T11:17:47.653Z] [INFO] [Main] Initializing AEVR Application...
+[2026-07-25T11:17:47.810Z] [INFO] [Main] Main window created successfully
+[2026-07-25T11:17:47.832Z] [INFO] [PluginManager] Discovering plugins...
+[2026-07-25T11:17:47.839Z] [INFO] [ToolRegistry] Registered tool: read_file (Categories: )
+[2026-07-25T11:17:47.840Z] [INFO] [ToolRegistry] Registered tool: write_to_file (Categories: )
+[2026-07-25T11:17:47.842Z] [INFO] [PluginManager] Successfully loaded plugin: filesystem
+[2026-07-25T11:17:47.848Z] [INFO] [ToolRegistry] Registered tool: run_terminal_command (Categories: )
+[2026-07-25T11:17:47.849Z] [INFO] [PluginManager] Successfully loaded plugin: system
+[2026-07-25T11:17:47.855Z] [INFO] [ToolRegistry] Registered tool: analyze_screen (Categories: )
+[2026-07-25T11:17:47.856Z] [INFO] [PluginManager] Successfully loaded plugin: vision
+[2026-07-25T11:17:47.860Z] [INFO] [DependencyInjector] Registered service: provider
+[2026-07-25T11:17:47.861Z] [INFO] [Main] AI Provider initialized successfully
+[2026-07-25T11:17:58.100Z] [INFO] [Planner] Creating execution plan for request
