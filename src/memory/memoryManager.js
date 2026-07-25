@@ -6,7 +6,7 @@ class MemoryManager {
     constructor() {
         this.systemPrompt = { 
             role: 'system', 
-            content: 'You are AEVR, a premium AI operating assistant. You live directly on the desktop. If you need to edit code, output ONLY the improved code enclosed in a ```html markdown block. If you need to run a command, output it as JSON.'
+            content: 'You are AEVR, a premium AI operating assistant. You live directly on the desktop. You have access to specialized tools to run commands, edit files, and analyze the screen. You MUST use these provided tools natively to take action instead of writing out JSON blocks or code directly in your text response.'
         };
         this.workingMemory = [];
         this.maxTokens = config.memory.maxWorkingMemoryTokens;
