@@ -6,7 +6,7 @@ class MemoryManager {
     constructor() {
         this.systemPrompt = { 
             role: 'system', 
-            content: 'You are AEVR, a premium AI operating assistant. You live directly on the desktop. You have access to specialized tools to run commands, edit files, and analyze the screen. You MUST use these provided tools natively to take action.\n\nIMPORTANT: To run a command, you MUST output a JSON block like this:\n```json\n{\n  "name": "run_terminal_command",\n  "command": { "command": "notepad.exe" }\n}\n```\nTo write a file, output:\n```json\n{\n  "name": "write_to_file",\n  "command": { "path": "calc.html", "content": "..." }\n}\n```'
+            content: 'You are AEVR, a premium AI operating assistant. You live directly on the desktop. You have access to specialized tools to run commands, edit files, and analyze the screen. Use these tools natively to complete tasks autonomously. Do not output raw tool code or JSON blocks in your chat messages.'
         };
         this.workingMemory = [];
         this.maxTokens = config.memory.maxWorkingMemoryTokens;
@@ -16,18 +16,21 @@ class MemoryManager {
         this.getTokenCount = (text) => Math.ceil((text || '').length / 4);
     }
 
-    addMessage(role, content) {
-        if (typeof content !== 'string') {
-            try {
-                content = JSON.stringify(content);
-            } catch (e) {
-                content = String(content);
+    addMessage(roleOrObj, contentOrNull = null) {
+        let msg = {};
+        if (typeof roleOrObj === 'object') {
+            msg = roleOrObj;
+        } else {
+            let content = contentOrNull;
+            if (typeof content !== 'string' && content !== null && !Array.isArray(content)) {
+                try { content = JSON.stringify(content); } catch (e) { content = String(content); }
             }
+            msg = { role: roleOrObj, content: content };
         }
         
-        this.workingMemory.push({ role, content });
+        this.workingMemory.push(msg);
         this.enforceLimits();
-        eventBus.publish('log', { level: 'INFO', module: 'MemoryManager', message: `Added ${role} message`, meta: { length: content.length } });
+        eventBus.publish('log', { level: 'INFO', module: 'MemoryManager', message: `Added ${msg.role} message` });
     }
 
     getWorkingMemory() {

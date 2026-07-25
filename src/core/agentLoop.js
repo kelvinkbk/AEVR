@@ -39,49 +39,25 @@ class AgentLoop {
                 const response = await provider.chat(context, tools);
 
                 if (response.type === 'text') {
-                    // Fallback parser for explicitly formatted JSON tool blocks
-                    let jsonStr = null;
-                    const markdownMatch = response.content.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
-                    
-                    if (markdownMatch) {
-                        jsonStr = markdownMatch[1];
-                    } else {
-                        // Find the first { and last } to extract the outermost JSON object
-                        const firstBrace = response.content.indexOf('{');
-                        const lastBrace = response.content.lastIndexOf('}');
-                        if (firstBrace !== -1 && lastBrace > firstBrace) {
-                            jsonStr = response.content.substring(firstBrace, lastBrace + 1);
-                        }
-                    }
-
-                    if (jsonStr) {
-                        try {
-                            const rawToolCall = JSON.parse(jsonStr);
-                            if (rawToolCall.name && rawToolCall.command) {
-                                response.type = 'tool_call';
-                                response.name = rawToolCall.name;
-                                response.command = rawToolCall.command;
-                                response.text = response.content; 
-                                eventBus.publish('log', { level: 'INFO', module: 'AgentLoop', message: `Fallback parsed raw JSON into tool call: ${response.name}` });
-                            }
-                        } catch (e) {
-                            // ignore parse error and fall through to text
-                            eventBus.publish('log', { level: 'WARN', module: 'AgentLoop', message: `Failed to parse fallback JSON: ${e.message}` });
-                        }
-                    }
-
-                    if (response.type === 'text') {
-                        // LLM decided to speak to the user, ending the loop
-                        memoryManager.addMessage('assistant', response.content);
-                        return response;
-                    }
+                    // LLM decided to speak to the user, ending the loop
+                    memoryManager.addMessage('assistant', response.content);
+                    return response;
                 }
 
                 if (response.type === 'tool_call') {
-                    // Output the thought if any
-                    if (response.text) {
-                        memoryManager.addMessage('assistant', response.text);
-                    }
+                    // Inject the assistant's tool call into native history to maintain context loop
+                    memoryManager.addMessage({
+                        role: 'assistant',
+                        content: response.text || null,
+                        tool_calls: [{
+                            id: response.id || `call_${Date.now()}`,
+                            type: 'function',
+                            function: {
+                                name: response.name,
+                                arguments: typeof response.command === 'string' ? response.command : JSON.stringify(response.command)
+                            }
+                        }]
+                    });
 
                     eventBus.publish('state:change', 'Executing');
                     
@@ -105,8 +81,14 @@ class AgentLoop {
                         };
                     }
 
-                    // Tool executed autonomously, add to memory and loop again
-                    memoryManager.addMessage('tool', `Result of ${response.name}:\n${execResult}`);
+                    // Native tool result injected directly into history
+                    memoryManager.addMessage({
+                        role: 'tool',
+                        tool_call_id: response.id || `call_${Date.now()}`,
+                        name: response.name,
+                        content: String(execResult)
+                    });
+                    
                     continue; // Jump to next loop iteration
                 }
 
