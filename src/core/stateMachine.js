@@ -1,4 +1,5 @@
 const { EventEmitter } = require('events');
+const logger = require('../utils/logger');
 
 class StateMachine extends EventEmitter {
     constructor() {
@@ -8,18 +9,25 @@ class StateMachine extends EventEmitter {
             LISTENING: 'Listening',
             THINKING: 'Thinking',
             EXECUTING: 'Executing',
-            SPEAKING: 'Speaking',
-            ERROR: 'Error'
+            ERROR: 'Error',
+            SPEAKING: 'Speaking'
         };
         this.currentState = this.states.IDLE;
+        logger.info('StateMachine', 'Initialized');
     }
 
     setState(newState) {
-        if (Object.values(this.states).includes(newState)) {
+        const validStates = Object.values(this.states);
+        if (!validStates.includes(newState)) {
+            logger.error('StateMachine', `Invalid state transition attempted: ${newState}`);
+            return;
+        }
+
+        if (this.currentState !== newState) {
+            const oldState = this.currentState;
             this.currentState = newState;
             this.emit('stateChanged', this.currentState);
-        } else {
-            console.error(`Invalid state: ${newState}`);
+            logger.info('StateMachine', `State changed: ${oldState} -> ${this.currentState}`);
         }
     }
 

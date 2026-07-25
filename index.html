@@ -740,10 +740,10 @@
         });
         
         function setUIState(state) {
-            islandShell.className = `island-shell state-${state}`;
-            if (state === 'expanded') {
-                islandShell.classList.add('expanded');
-                islandShell.classList.add('state-idle');
+            island.className = `island-shell state-${state}`;
+            if (state === 'expanded' || document.getElementById('messages').children.length > 0) {
+                island.classList.add('expanded');
+                if (state === 'expanded') island.classList.add('state-idle');
             }
         }
 
@@ -849,7 +849,7 @@
                     promptDiv.innerHTML = `<div style="color: #28a745; font-size: 0.85rem;">Command approved. Executing...</div>`;
                     setState('thinking');
                     try {
-                        const nextReply = await window.electronAPI.executeTool(reply.id, reply.name, reply.command, true);
+                        const nextReply = await window.api.executeTool(reply.id, reply.name, reply.command, true);
                         await processLLMResponse(nextReply);
                     } catch (e) {
                         addMessage("Execution failed: " + e, "ai-msg");
@@ -861,7 +861,7 @@
                     promptDiv.innerHTML = `<div style="color: #dc3545; font-size: 0.85rem;">Command rejected.</div>`;
                     setState('thinking');
                     try {
-                        const nextReply = await window.electronAPI.executeTool(reply.id, reply.name, reply.command, false);
+                        const nextReply = await window.api.executeTool(reply.id, reply.name, reply.command, false);
                         await processLLMResponse(nextReply);
                     } catch (e) {
                         addMessage("Rejection failed: " + e, "ai-msg");
@@ -936,14 +936,16 @@
             document.querySelectorAll('.state-btn').forEach(b => b.classList.remove('active'));
             if(btnElement) btnElement.classList.add('active');
 
-            island.classList.remove('state-idle', 'state-listening', 'state-thinking', 'state-speaking');
+            island.classList.remove('state-idle', 'state-listening', 'state-thinking', 'state-speaking', 'state-executing', 'state-error');
             island.classList.add(`state-${state}`);
             
             switch(state) {
                 case 'idle': statusText.textContent = 'Idle'; break;
                 case 'listening': statusText.textContent = 'Listening...'; break;
                 case 'thinking': statusText.textContent = 'Processing request...'; break;
+                case 'executing': statusText.textContent = 'Executing...'; break;
                 case 'speaking': statusText.textContent = 'Speaking...'; break;
+                case 'error': statusText.textContent = 'Error'; break;
             }
         }
 
