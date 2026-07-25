@@ -40,11 +40,23 @@ class AgentLoop {
 
                 if (response.type === 'text') {
                     // Fallback parser for explicitly formatted JSON tool blocks
-                    const jsonMatch = response.content.match(/```json\s*(\{[\s\S]*?\})\s*```/) || response.content.match(/(\{\s*"name"\s*:[\s\S]*?\})/);
+                    let jsonStr = null;
+                    const markdownMatch = response.content.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
                     
-                    if (jsonMatch) {
+                    if (markdownMatch) {
+                        jsonStr = markdownMatch[1];
+                    } else {
+                        // Find the first { and last } to extract the outermost JSON object
+                        const firstBrace = response.content.indexOf('{');
+                        const lastBrace = response.content.lastIndexOf('}');
+                        if (firstBrace !== -1 && lastBrace > firstBrace) {
+                            jsonStr = response.content.substring(firstBrace, lastBrace + 1);
+                        }
+                    }
+
+                    if (jsonStr) {
                         try {
-                            const rawToolCall = JSON.parse(jsonMatch[1]);
+                            const rawToolCall = JSON.parse(jsonStr);
                             if (rawToolCall.name && rawToolCall.command) {
                                 response.type = 'tool_call';
                                 response.name = rawToolCall.name;
@@ -54,6 +66,7 @@ class AgentLoop {
                             }
                         } catch (e) {
                             // ignore parse error and fall through to text
+                            eventBus.publish('log', { level: 'WARN', module: 'AgentLoop', message: `Failed to parse fallback JSON: ${e.message}` });
                         }
                     }
 
