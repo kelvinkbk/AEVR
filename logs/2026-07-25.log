@@ -1,0 +1,3 @@
+{"timestamp":"2026-07-25T06:44:14.017Z","level":"INFO","module":"SettingsStore","message":"No settings found, creating defaults"}
+{"timestamp":"2026-07-25T06:44:14.080Z","level":"INFO","module":"SettingsStore","message":"Settings saved"}
+{"timestamp":"2026-07-25T06:44:14.084Z","level":"INFO","module":"StateMachine","message":"Initialized"}

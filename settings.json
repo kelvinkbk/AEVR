@@ -1,0 +1,17 @@
+{
+  "ui": {
+    "theme": "spectrum",
+    "accent": "cyan",
+    "alwaysOnTop": true,
+    "trayMode": true,
+    "launchAtStartup": false
+  },
+  "ai": {
+    "provider": "Ollama",
+    "model": "llama3.1",
+    "temperature": 0.1,
+    "maxTokens": 4096,
+    "developerMode": false
+  },
+  "permissions": {}
+}

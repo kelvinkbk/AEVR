@@ -1,14 +1,14 @@
 {
   "name": "aevr-desktop",
   "version": "1.0.0",
-  "description": "",
+  "description": "A premium AI desktop assistant powered by Electron and Local LLMs.",
   "main": "main.js",
   "scripts": {
     "start": "electron ."
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "keywords": ["ai", "assistant", "electron", "desktop", "llm"],
+  "author": "AEVR Team",
+  "license": "MIT",
   "type": "commonjs",
   "devDependencies": {
     "electron": "^43.2.0"

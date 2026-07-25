@@ -1,9 +1,10 @@
-const fs = require('fs');
+const os = require('os');
 const path = require('path');
+const fs = require('fs');
 
 class Logger {
     constructor() {
-        this.logDir = path.join(__dirname, '..', '..', 'logs');
+        this.logDir = path.join(os.homedir(), '.aevr', 'logs');
         this.ensureLogDir();
     }
 

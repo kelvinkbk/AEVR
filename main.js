@@ -96,6 +96,13 @@ function createTray() {
 }
 
 app.whenReady().then(() => {
+  // Always create the window immediately so the user isn't stuck with a silent background process
+  createWindow();
+  if (settingsStore.get('ui.trayMode')) {
+      createTray();
+  }
+  registerIpcHandlers();
+
   // Register DI Container for AgentLoop
   const diContainer = require('./src/core/diContainer');
   const ProviderFactory = require('./src/services/providers/ProviderFactory');
@@ -103,16 +110,11 @@ app.whenReady().then(() => {
   ProviderFactory.getProvider(settingsStore.get('ai.provider') || 'Ollama')
     .then(provider => {
         diContainer.register('provider', provider);
-        
-        createWindow();
-        if (settingsStore.get('ui.trayMode')) {
-            createTray();
-        }
-        registerIpcHandlers();
+        logger.info('Main', 'AI Provider initialized successfully');
     })
     .catch(e => {
         logger.error('Main', 'Failed to initialize AI Provider on boot', e);
-        // Fallback UI or close
+        // The UI is already open, it can show an error state if the user tries to chat
     });
   
   app.on('activate', function () {

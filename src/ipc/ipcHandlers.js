@@ -17,9 +17,8 @@ function registerIpcHandlers() {
             
             stateMachine.setState(stateMachine.states.THINKING);
             
-            // Note: screenshotDataUrl is now null. 
             // The AI will use the analyze_screen tool if it needs to see the display.
-            const result = await agentLoop.step(message, null);
+            const result = await agentLoop.step(message, false, 0);
             
             stateMachine.setState(stateMachine.states.SPEAKING);
             return result;
@@ -31,11 +30,11 @@ function registerIpcHandlers() {
         }
     });
 
-    ipcMain.handle('execute-tool', async (event, toolCallId, name, command, approved) => {
+    ipcMain.handle('execute-tool', async (event, toolCallId, name, command, approved, currentIterations = 0) => {
         if (!approved) {
             memoryManager.addMessage('tool', `User REJECTED tool execution: ${name}`);
             // Resume the loop so the LLM knows it was rejected and can plan accordingly
-            return await agentLoop.step(null, null, true);
+            return await agentLoop.step(null, true, currentIterations);
         }
         
         stateMachine.setState(stateMachine.states.EXECUTING);
@@ -51,7 +50,7 @@ function registerIpcHandlers() {
             memoryManager.addMessage('tool', `Result of ${name}:\n${result}`);
             
             // Resume loop autonomously
-            return await agentLoop.step(null, null, true);
+            return await agentLoop.step(null, true, currentIterations);
             
         } catch (error) {
             stateMachine.setState(stateMachine.states.ERROR);
@@ -59,7 +58,7 @@ function registerIpcHandlers() {
             logger.error('IPCHandler', 'Tool execution error', error);
             
             // Resume loop so LLM can recover from the error
-            return await agentLoop.step(null, null, true);
+            return await agentLoop.step(null, true, currentIterations);
         }
     });
 }

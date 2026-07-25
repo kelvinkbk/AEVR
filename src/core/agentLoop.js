@@ -11,7 +11,7 @@ class AgentLoop {
         this.maxIterations = 10;
     }
 
-    async step(request, screenshotDataUrl = null, isResume = false) {
+    async step(request, isResume = false, currentIterations = 0) {
         logger.info('AgentLoop', isResume ? 'Resuming execution loop' : 'Starting new execution loop');
         
         if (!isResume && request) {
@@ -26,13 +26,14 @@ class AgentLoop {
         }
 
         const provider = diContainer.get('provider');
-        let iterations = 0;
+        let iterations = currentIterations;
 
         while (iterations < this.maxIterations) {
             iterations++;
             stateMachine.setState(stateMachine.states.THINKING);
             
-            const context = memoryManager.getContextForModel(screenshotDataUrl);
+            // Vision is handled by analyze_screen tool, no need to pass explicit data here
+            const context = memoryManager.getContextForModel();
             const tools = registry.getSchemas();
 
             try {
@@ -60,14 +61,15 @@ class AgentLoop {
 
                     if (execResult && execResult.requiresUIApproval) {
                         stateMachine.setState(stateMachine.states.WAITING_APPROVAL);
-                        // Return control to UI to ask for permission
+                        // Return control to UI to ask for permission, passing current iteration state
                         return {
                             type: 'tool_call', // Using tool_call type so UI parses it as a permission prompt
                             id: response.id || `call_${Date.now()}`,
                             name: execResult.toolName,
                             command: JSON.stringify(execResult.args),
                             text: execResult.message,
-                            requiresUIApproval: true
+                            requiresUIApproval: true,
+                            _iterations: iterations
                         };
                     }
 

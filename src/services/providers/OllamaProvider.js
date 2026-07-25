@@ -1,12 +1,12 @@
 const ProviderInterface = require('./ProviderInterface');
-const config = require('../../config/config');
+const settingsStore = require('../../config/settingsStore');
 const logger = require('../../utils/logger');
 
 class OllamaProvider extends ProviderInterface {
     constructor() {
         super();
-        this.baseUrl = config.llm.baseUrl || 'http://localhost:11434/v1';
-        this.model = config.llm.model || 'llama3.1';
+        this.baseUrl = settingsStore.get('ai.baseUrl') || 'http://localhost:11434/v1';
+        this.model = settingsStore.get('ai.model') || 'llama3.1';
     }
 
     getName() {

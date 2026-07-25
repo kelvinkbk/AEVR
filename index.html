@@ -849,7 +849,7 @@
                     promptDiv.innerHTML = `<div style="color: #28a745; font-size: 0.85rem;">Command approved. Executing...</div>`;
                     setState('thinking');
                     try {
-                        const nextReply = await window.api.executeTool(reply.id, reply.name, reply.command, true);
+                        const nextReply = await window.api.executeTool(reply.id, reply.name, reply.command, true, reply._iterations);
                         await processLLMResponse(nextReply);
                     } catch (e) {
                         addMessage("Execution failed: " + e, "ai-msg");
@@ -861,7 +861,7 @@
                     promptDiv.innerHTML = `<div style="color: #dc3545; font-size: 0.85rem;">Command rejected.</div>`;
                     setState('thinking');
                     try {
-                        const nextReply = await window.api.executeTool(reply.id, reply.name, reply.command, false);
+                        const nextReply = await window.api.executeTool(reply.id, reply.name, reply.command, false, reply._iterations);
                         await processLLMResponse(nextReply);
                     } catch (e) {
                         addMessage("Rejection failed: " + e, "ai-msg");

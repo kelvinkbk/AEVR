@@ -1,10 +1,15 @@
-const fs = require('fs');
+const os = require('os');
 const path = require('path');
+const fs = require('fs');
 const logger = require('../utils/logger');
 
 class SettingsStore {
     constructor() {
-        this.settingsFile = path.join(__dirname, '..', '..', 'settings.json');
+        const configDir = path.join(os.homedir(), '.aevr');
+        if (!fs.existsSync(configDir)) {
+            fs.mkdirSync(configDir, { recursive: true });
+        }
+        this.settingsFile = path.join(configDir, 'settings.json');
         this.defaultSettings = {
             ui: {
                 theme: 'spectrum',
