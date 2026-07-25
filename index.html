@@ -769,11 +769,20 @@
                     }
                 } else {
                     // Fallback for browser testing
-                    setTimeout(() => {
+                    try {
+                        const response = await fetch('http://localhost:3333/api/message', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ message: text })
+                        });
+                        if (!response.ok) throw new Error('Network error');
+                        const reply = await response.json();
+                        await processLLMResponse(reply);
+                    } catch (error) {
                         setState('speaking');
-                        addMessage("ai", "API connection not established.");
+                        addMessage("ai", "API connection not established. Is the backend server running on port 3333?");
                         setTimeout(() => setState('idle'), 3000);
-                    }, 1000);
+                    }
                 }
             }
         }
@@ -849,10 +858,20 @@
                     promptDiv.innerHTML = `<div style="color: #28a745; font-size: 0.85rem;">Command approved. Executing...</div>`;
                     setState('thinking');
                     try {
-                        const nextReply = await window.api.executeTool(reply.id, reply.name, reply.command, true, reply._iterations);
+                        let nextReply;
+                        if (window.api && window.api.executeTool) {
+                            nextReply = await window.api.executeTool(reply.id, reply.name, reply.command, true, reply._iterations);
+                        } else {
+                            const response = await fetch('http://localhost:3333/api/execute', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ toolCallId: reply.id, name: reply.name, command: reply.command, approved: true, iterations: reply._iterations })
+                            });
+                            nextReply = await response.json();
+                        }
                         await processLLMResponse(nextReply);
                     } catch (e) {
-                        addMessage("Execution failed: " + e, "ai-msg");
+                        addMessage("ai", "Execution failed: " + e);
                         setState('idle');
                     }
                 });
@@ -861,10 +880,20 @@
                     promptDiv.innerHTML = `<div style="color: #dc3545; font-size: 0.85rem;">Command rejected.</div>`;
                     setState('thinking');
                     try {
-                        const nextReply = await window.api.executeTool(reply.id, reply.name, reply.command, false, reply._iterations);
+                        let nextReply;
+                        if (window.api && window.api.executeTool) {
+                            nextReply = await window.api.executeTool(reply.id, reply.name, reply.command, false, reply._iterations);
+                        } else {
+                            const response = await fetch('http://localhost:3333/api/execute', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ toolCallId: reply.id, name: reply.name, command: reply.command, approved: false, iterations: reply._iterations })
+                            });
+                            nextReply = await response.json();
+                        }
                         await processLLMResponse(nextReply);
                     } catch (e) {
-                        addMessage("Rejection failed: " + e, "ai-msg");
+                        addMessage("ai", "Execution failed: " + e);
                         setState('idle');
                     }
                 });

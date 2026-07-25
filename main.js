@@ -141,6 +141,58 @@ app.whenReady().then(() => {
   app.on('activate', function () {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
+
+  // Start a minimal HTTP server for browser-based testing
+  const http = require('http');
+  const agentLoop = require('./src/core/agentLoop');
+  const memoryManager = require('./src/memory/memoryManager');
+  const httpTestServer = http.createServer((req, res) => {
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+      if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
+
+      if (req.method === 'POST') {
+          let body = '';
+          req.on('data', chunk => body += chunk.toString());
+          req.on('end', async () => {
+              try {
+                  const data = JSON.parse(body);
+                  let result;
+                  if (req.url === '/api/message') {
+                      eventBus.publish('state:change', 'Listening');
+                      eventBus.publish('state:change', 'Thinking');
+                      result = await agentLoop.step(data.message, false, 0);
+                      eventBus.publish('state:change', 'Speaking');
+                  } else if (req.url === '/api/execute') {
+                      if (!data.approved) {
+                          memoryManager.addMessage({ role: 'tool', tool_call_id: data.toolCallId, content: `User REJECTED tool execution: ${data.name}` });
+                          result = await agentLoop.step(null, true, data.iterations);
+                      } else {
+                          eventBus.publish('state:change', 'Executing');
+                          let args = {};
+                          try { args = JSON.parse(data.command); } catch (e) { args = { command: data.command, text: data.command }; }
+                          const tool = require('./src/tools/registry').getTool(data.name);
+                          const toolResult = await tool.execute(args);
+                          memoryManager.addMessage({ role: 'tool', tool_call_id: data.toolCallId, content: typeof toolResult === 'string' ? toolResult : JSON.stringify(toolResult, null, 2) });
+                          result = await agentLoop.step(null, true, data.iterations);
+                      }
+                  } else {
+                      res.writeHead(404); return res.end();
+                  }
+                  res.writeHead(200, { 'Content-Type': 'application/json' });
+                  res.end(JSON.stringify(result));
+              } catch (e) {
+                  eventBus.publish('state:change', 'Error');
+                  res.writeHead(500, { 'Content-Type': 'application/json' });
+                  res.end(JSON.stringify({ type: 'text', content: 'Agent Error: ' + e.message }));
+              }
+          });
+      } else {
+          res.writeHead(404); res.end();
+      }
+  });
+  httpTestServer.listen(3333, () => logger.info('Main', 'Local test server listening on port 3333'));
 });
 
 app.on('window-all-closed', function () {

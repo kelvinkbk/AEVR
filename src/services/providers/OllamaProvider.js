@@ -46,9 +46,26 @@ class OllamaProvider extends ProviderInterface {
     }
 
     async chat(messages, tools = []) {
+        // Clone messages to avoid mutating the original history
+        const formattedMessages = messages.map(msg => {
+            if (msg.tool_calls && Array.isArray(msg.tool_calls)) {
+                return {
+                    ...msg,
+                    tool_calls: msg.tool_calls.map(tc => ({
+                        ...tc,
+                        function: {
+                            ...tc.function,
+                            arguments: typeof tc.function.arguments === 'object' ? JSON.stringify(tc.function.arguments) : tc.function.arguments
+                        }
+                    }))
+                };
+            }
+            return msg;
+        });
+
         const payload = {
             model: this.model,
-            messages: messages,
+            messages: formattedMessages,
             stream: false,
             options: {
                 temperature: tools && tools.length > 0 ? 0.1 : 0.5

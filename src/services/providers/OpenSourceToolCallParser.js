@@ -30,7 +30,11 @@ class OpenSourceToolCallParser {
         // Fallback for XML tool calls generated in content text by Ollama models
         const xmlMatch = content.match(/<tool_call>\s*([\s\S]*?)(?:<\/tool_call>|$)/i);
         if (xmlMatch) {
-            const jsonStr = xmlMatch[1].trim();
+            let jsonStr = xmlMatch[1].trim();
+            // Llama 3.2 sometimes forgets the final closing brace
+            if (!jsonStr.endsWith('}')) {
+                jsonStr += '}';
+            }
             const parsedXmlJson = this._safeJsonParse(jsonStr);
             if (parsedXmlJson) {
                 const toolCalls = this._normalizeToolCalls(parsedXmlJson);
@@ -45,6 +49,18 @@ class OpenSourceToolCallParser {
             const toolCalls = this._normalizeToolCalls({ name: 'analyze_screen', arguments: {} });
             if (toolCalls.length > 0) {
                 return this._buildToolCallResponse({ content: content.replace(/<screen_capture>.*?<\/screen_capture>/gi, '').trim() }, toolCalls);
+            }
+        }
+
+        // Fallback for raw JSON tool calls without wrapper tags
+        const rawJsonMatch = content.match(/\{\s*"name"\s*:\s*"[^"]+"\s*,\s*"(?:parameters|arguments)"\s*:\s*\{.*?\}\s*\}/);
+        if (rawJsonMatch) {
+            const parsedRaw = this._safeJsonParse(rawJsonMatch[0]);
+            if (parsedRaw) {
+                const toolCalls = this._normalizeToolCalls(parsedRaw);
+                if (toolCalls.length > 0) {
+                    return this._buildToolCallResponse({ content: content.replace(rawJsonMatch[0], '').trim() }, toolCalls);
+                }
             }
         }
 
