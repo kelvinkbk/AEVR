@@ -22,37 +22,20 @@ class ToolRegistry {
         if (!tool.schema || typeof tool.schema !== 'object') {
             throw new Error(`Invalid tool schema for ${tool.name}.`);
         }
+        
+        // Ensure arrays exist for new metadata
+        tool.categories = Array.isArray(tool.categories) ? tool.categories : [];
+        tool.metadata = tool.metadata || {};
 
         this.tools.set(tool.name, tool);
-        logger.info('ToolRegistry', `Registered tool: ${tool.name}`);
+        logger.info('ToolRegistry', `Registered tool: ${tool.name} (Categories: ${tool.categories.join(',')})`);
     }
 
+    // We moved permission checking to PermissionManager, keeping this for backward compatibility temporarily
     async checkPermission(toolName, args) {
-        const tool = this.tools.get(toolName);
-        if (!tool) throw new Error(`Tool not found: ${toolName}`);
-
-        if (tool.permission === 'never') {
-            logger.warn('ToolRegistry', `Execution denied by policy for ${toolName}`);
-            throw new Error(`Tool execution denied by security policy.`);
-        }
-
-        if (tool.permission === 'ask') {
-            logger.info('ToolRegistry', `Prompting user for permission to run ${toolName}`);
-            const choice = dialog.showMessageBoxSync({
-                type: 'warning',
-                buttons: ['Approve', 'Deny'],
-                defaultId: 1,
-                title: 'Security Prompt',
-                message: `The AI is attempting to execute a restricted tool: ${toolName}\n\nArguments:\n${JSON.stringify(args, null, 2)}`
-            });
-            if (choice !== 0) {
-                logger.warn('ToolRegistry', `User denied permission for ${toolName}`);
-                throw new Error('User denied tool execution.');
-            }
-            logger.info('ToolRegistry', `User approved permission for ${toolName}`);
-        }
-
-        return true; 
+        const tool = this.getTool(toolName);
+        const permissionManager = require('../security/permissionManager');
+        return await permissionManager.checkPermission(tool, args);
     }
 
     getTool(toolName) {

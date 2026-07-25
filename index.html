@@ -936,15 +936,20 @@
             document.querySelectorAll('.state-btn').forEach(b => b.classList.remove('active'));
             if(btnElement) btnElement.classList.add('active');
 
-            island.classList.remove('state-idle', 'state-listening', 'state-thinking', 'state-speaking', 'state-executing', 'state-error');
+            const allStates = ['state-idle', 'state-listening', 'state-thinking', 'state-speaking', 'state-executing', 'state-error', 'state-planning', 'state-waiting_approval', 'state-completed', 'state-interrupted'];
+            island.classList.remove(...allStates);
             island.classList.add(`state-${state}`);
             
             switch(state) {
                 case 'idle': statusText.textContent = 'Idle'; break;
                 case 'listening': statusText.textContent = 'Listening...'; break;
                 case 'thinking': statusText.textContent = 'Processing request...'; break;
+                case 'planning': statusText.textContent = 'Planning execution...'; break;
                 case 'executing': statusText.textContent = 'Executing...'; break;
+                case 'waiting_approval': statusText.textContent = 'Waiting for Approval'; break;
                 case 'speaking': statusText.textContent = 'Speaking...'; break;
+                case 'completed': statusText.textContent = 'Completed'; break;
+                case 'interrupted': statusText.textContent = 'Interrupted'; break;
                 case 'error': statusText.textContent = 'Error'; break;
             }
         }

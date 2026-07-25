@@ -1,5 +1,6 @@
 const config = require('../config/config');
 const logger = require('../utils/logger');
+const semanticRetrieval = require('./SemanticRetrieval');
 
 class MemoryManager {
     constructor() {
@@ -66,8 +67,14 @@ class MemoryManager {
     }
 
     clear() {
+        // Archive current working memory before clearing
+        if (this.workingMemory.length > 0) {
+            const contextString = this.workingMemory.map(m => `[${m.role}] ${typeof m.content === 'string' ? m.content : JSON.stringify(m.content)}`).join('\n');
+            semanticRetrieval.archive(contextString, { type: 'conversation_clear' });
+        }
+        
         this.workingMemory = [];
-        logger.info('MemoryManager', 'Working memory cleared');
+        logger.info('MemoryManager', 'Working memory cleared and archived to Semantic Retrieval');
     }
 
     enforceLimits() {
@@ -77,6 +84,11 @@ class MemoryManager {
         while (currentTokens > this.maxTokens && this.workingMemory.length > 2) {
             const removed = this.workingMemory.shift();
             currentTokens -= this.getTokenCount(typeof removed.content === 'string' ? removed.content : JSON.stringify(removed.content));
+            
+            // Archive old memory that slides out
+            if (removed && removed.content) {
+                semanticRetrieval.archive(`[${removed.role}] ${typeof removed.content === 'string' ? removed.content : JSON.stringify(removed.content)}`, { type: 'sliding_window_prune' });
+            }
         }
     }
 }

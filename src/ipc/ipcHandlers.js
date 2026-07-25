@@ -34,7 +34,8 @@ function registerIpcHandlers() {
     ipcMain.handle('execute-tool', async (event, toolCallId, name, command, approved) => {
         if (!approved) {
             memoryManager.addMessage('tool', `User REJECTED tool execution: ${name}`);
-            return { type: 'text', content: "Tool execution aborted by user." };
+            // Resume the loop so the LLM knows it was rejected and can plan accordingly
+            return await agentLoop.step(null, null, true);
         }
         
         stateMachine.setState(stateMachine.states.EXECUTING);
@@ -43,16 +44,22 @@ function registerIpcHandlers() {
             let args = {};
             try { args = JSON.parse(command); } catch (e) { args = { command: command, text: command }; }
             
-            const result = await executor.executeToolCall(name, args);
-            memoryManager.addMessage('tool', result);
+            // Bypass permission check this time because UI already approved
+            const tool = require('../tools/registry').getTool(name);
+            const result = await tool.execute(args);
             
-            stateMachine.setState(stateMachine.states.IDLE);
-            return { type: 'text', content: `Tool execution complete. Result: ${result}` };
+            memoryManager.addMessage('tool', `Result of ${name}:\n${result}`);
+            
+            // Resume loop autonomously
+            return await agentLoop.step(null, null, true);
+            
         } catch (error) {
             stateMachine.setState(stateMachine.states.ERROR);
             memoryManager.addMessage('tool', `Execution failed: ${error.message}`);
             logger.error('IPCHandler', 'Tool execution error', error);
-            return { type: 'text', content: `Execution failed: ${error.message}` };
+            
+            // Resume loop so LLM can recover from the error
+            return await agentLoop.step(null, null, true);
         }
     });
 }

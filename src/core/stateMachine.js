@@ -8,9 +8,13 @@ class StateMachine extends EventEmitter {
             IDLE: 'Idle',
             LISTENING: 'Listening',
             THINKING: 'Thinking',
+            PLANNING: 'Planning',
             EXECUTING: 'Executing',
+            WAITING_APPROVAL: 'Waiting Approval',
+            SPEAKING: 'Speaking',
+            COMPLETED: 'Completed',
             ERROR: 'Error',
-            SPEAKING: 'Speaking'
+            INTERRUPTED: 'Interrupted'
         };
         this.currentState = this.states.IDLE;
         logger.info('StateMachine', 'Initialized');

@@ -1,87 +1,92 @@
 const memoryManager = require('../memory/memoryManager');
 const logger = require('../utils/logger');
-const config = require('../config/config');
-
-// Load provider dynamically based on config
-let ProviderClass;
-if (config.models.provider === 'ollama') {
-    ProviderClass = require('../services/ollamaProvider');
-} else {
-    // Fallback or placeholder for other providers
-    ProviderClass = require('../services/ollamaProvider');
-}
-
-const provider = new ProviderClass();
+const diContainer = require('./diContainer');
+const planner = require('./planner');
+const executor = require('../tools/executor');
+const registry = require('../tools/registry');
+const stateMachine = require('./stateMachine');
 
 class AgentLoop {
     constructor() {
-        this.provider = provider;
-        this.capabilities = provider.capabilities();
+        this.maxIterations = 10;
     }
 
-    async step(request, screenshotDataUrl = null) {
-        logger.info('AgentLoop', 'Starting execution step', { requestSnippet: request ? request.substring(0, 50) : 'none' });
+    async step(request, screenshotDataUrl = null, isResume = false) {
+        logger.info('AgentLoop', isResume ? 'Resuming execution loop' : 'Starting new execution loop');
         
-        if (request) {
+        if (!isResume && request) {
             memoryManager.addMessage('user', request);
-        }
-
-        const context = memoryManager.getContextForModel(screenshotDataUrl);
-        
-        try {
-            // Note: tools array should be passed here in a real implementation
-            // For now, llava relies on prompt instructions for JSON output
-            const response = await this.provider.chat(context, {
-                model: config.models.defaultModel
-            });
-
-            logger.info('AgentLoop', 'Received response from provider');
+            stateMachine.setState(stateMachine.states.PLANNING);
             
-            // Add assistant response to memory
-            if (response.content) {
-                memoryManager.addMessage('assistant', response.content);
-            }
-
-            return this.parseResponse(response);
-        } catch (error) {
-            logger.error('AgentLoop', 'Provider interaction failed', error);
-            throw error;
+            // Generate Plan
+            const plan = await planner.createPlan(request);
+            logger.info('AgentLoop', 'Plan generated', { steps: plan.length });
+            
+            memoryManager.addMessage('system', `Plan generated:\n${JSON.stringify(plan, null, 2)}`);
         }
-    }
 
-    parseResponse(response) {
-        // Fallback robust parsing to extract tool calls or code
-        if (response.tool_calls && response.tool_calls.length > 0) {
-            const toolCall = response.tool_calls[0];
-            return {
-                type: 'tool_call',
-                id: toolCall.id,
-                name: toolCall.function.name,
-                command: toolCall.function.arguments,
-                text: response.content
-            };
-        } 
+        const provider = diContainer.get('provider');
+        let iterations = 0;
+
+        while (iterations < this.maxIterations) {
+            iterations++;
+            stateMachine.setState(stateMachine.states.THINKING);
+            
+            const context = memoryManager.getContextForModel(screenshotDataUrl);
+            const tools = registry.getSchemas();
+
+            try {
+                const response = await provider.chat(context, tools);
+
+                if (response.type === 'text') {
+                    // LLM decided to speak to the user, ending the loop
+                    memoryManager.addMessage('assistant', response.content);
+                    return response;
+                }
+
+                if (response.type === 'tool_call') {
+                    // Output the thought if any
+                    if (response.text) {
+                        memoryManager.addMessage('assistant', response.text);
+                    }
+
+                    stateMachine.setState(stateMachine.states.EXECUTING);
+                    
+                    let args = {};
+                    try { args = typeof response.command === 'string' ? JSON.parse(response.command) : response.command; } 
+                    catch (e) { args = { command: response.command }; }
+
+                    const execResult = await executor.executeToolCall(response.name, args);
+
+                    if (execResult && execResult.requiresUIApproval) {
+                        stateMachine.setState(stateMachine.states.WAITING_APPROVAL);
+                        // Return control to UI to ask for permission
+                        return {
+                            type: 'tool_call', // Using tool_call type so UI parses it as a permission prompt
+                            id: response.id || `call_${Date.now()}`,
+                            name: execResult.toolName,
+                            command: JSON.stringify(execResult.args),
+                            text: execResult.message,
+                            requiresUIApproval: true
+                        };
+                    }
+
+                    // Tool executed autonomously, add to memory and loop again
+                    memoryManager.addMessage('tool', `Result of ${response.name}:\n${execResult}`);
+                    continue; // Jump to next loop iteration
+                }
+
+            } catch (error) {
+                logger.error('AgentLoop', 'Error during loop iteration', error);
+                memoryManager.addMessage('system', `Error: ${error.message}. Please retry or adjust approach.`);
+                
+                if (iterations >= 3) {
+                    throw error; // Fail completely if stuck in error loop
+                }
+            }
+        }
         
-        if (response.content && response.content.includes("```")) {
-            // Auto-fallback code extraction logic for models that don't support native tool calling
-            const codeMatch = response.content.match(/```(?:html|javascript|css)?\n([\s\S]*?)```/);
-            if (codeMatch) {
-                const escapedCode = codeMatch[1].replace(/"/g, '\\"').replace(/\n/g, '\\n');
-                const fakeJson = `{"filepath":"C:\\\\Users\\\\kelvX2006\\\\Desktop\\\\calculator.html", "content":"${escapedCode}"}`;
-                return {
-                    type: 'tool_call',
-                    id: 'auto_extracted_' + Date.now(),
-                    name: 'write_to_file',
-                    command: fakeJson,
-                    text: "I have prepared the code. Click Approve to apply it."
-                };
-            }
-        }
-
-        return {
-            type: 'text',
-            content: response.content || "I finished analyzing, but I didn't output anything actionable."
-        };
+        return { type: 'text', content: "I've hit my maximum thinking steps for this task." };
     }
 }
 
