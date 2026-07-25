@@ -48,20 +48,4 @@ class ToolRegistry {
 }
 
 const registry = new ToolRegistry();
-
-// Auto-load tools
-const toolsDir = path.join(__dirname, 'implementations');
-if (fs.existsSync(toolsDir)) {
-    fs.readdirSync(toolsDir).forEach(file => {
-        if (file.endsWith('.js')) {
-            try {
-                const tool = require(path.join(toolsDir, file));
-                registry.register(tool);
-            } catch (e) {
-                logger.error('ToolRegistry', `Failed to load tool ${file}`, e);
-            }
-        }
-    });
-}
-
 module.exports = registry;

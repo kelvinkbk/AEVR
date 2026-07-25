@@ -6,6 +6,7 @@ class Logger {
     constructor() {
         this.logDir = path.join(os.homedir(), '.aevr', 'logs');
         this.ensureLogDir();
+        // Wait to require eventBus until methods are called to avoid circular deps during init
     }
 
     ensureLogDir() {
@@ -37,6 +38,13 @@ class Logger {
         } catch (e) {
             console.error("Failed to write to log file:", e);
         }
+
+        // Publish to EventBus dynamically to avoid circular dependencies
+        const eventBus = require('../core/EventBus');
+        if (level === 'ERROR') {
+            eventBus.publish('error:system', logObj);
+        }
+        eventBus.publish('log', logObj);
     }
 
     info(module, message, meta = {}) {

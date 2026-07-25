@@ -1,5 +1,5 @@
 const registry = require('./registry');
-const logger = require('../utils/logger');
+const eventBus = require('../core/EventBus');
 const permissionManager = require('../security/permissionManager');
 
 class Executor {
@@ -9,7 +9,8 @@ class Executor {
     }
 
     async executeToolCall(toolCallName, args, retries = 1) {
-        logger.info('Executor', `Executing tool: ${toolCallName}`, { args, retries });
+        const startTime = Date.now();
+        eventBus.publish('log', { level: 'INFO', module: 'Executor', message: `Executing tool: ${toolCallName}`, meta: { args, retries } });
         
         const tool = registry.getTool(toolCallName);
         if (!tool) throw new Error(`Tool not found: ${toolCallName}`);
@@ -30,14 +31,15 @@ class Executor {
             ]);
 
             this._recordHistory(toolCallName, args, result, 'success');
-            logger.info('Executor', `Tool execution successful: ${toolCallName}`);
+            eventBus.publish('log', { level: 'INFO', module: 'Executor', message: `Tool execution successful: ${toolCallName}` });
+            eventBus.publish('metrics:tool_latency', Date.now() - startTime);
             return result;
         } catch (error) {
             this._recordHistory(toolCallName, args, error.message, 'error');
-            logger.error('Executor', `Tool execution failed: ${toolCallName}`, error);
+            eventBus.publish('log', { level: 'ERROR', module: 'Executor', message: `Tool execution failed: ${toolCallName}`, meta: { errorMsg: error.message } });
             
             if (retries > 0) {
-                logger.info('Executor', `Retrying tool execution: ${toolCallName}`);
+                eventBus.publish('log', { level: 'INFO', module: 'Executor', message: `Retrying tool execution: ${toolCallName}` });
                 return this.executeToolCall(toolCallName, args, retries - 1);
             }
             

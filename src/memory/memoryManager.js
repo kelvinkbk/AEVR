@@ -1,6 +1,6 @@
 const config = require('../config/config');
-const logger = require('../utils/logger');
-const semanticRetrieval = require('./SemanticRetrieval');
+const eventBus = require('../core/EventBus');
+const backgroundWorker = require('../workers/backgroundWorker');
 
 class MemoryManager {
     constructor() {
@@ -27,7 +27,7 @@ class MemoryManager {
         
         this.workingMemory.push({ role, content });
         this.enforceLimits();
-        logger.info('MemoryManager', `Added ${role} message`, { length: content.length });
+        eventBus.publish('log', { level: 'INFO', module: 'MemoryManager', message: `Added ${role} message`, meta: { length: content.length } });
     }
 
     getWorkingMemory() {
@@ -70,11 +70,11 @@ class MemoryManager {
         // Archive current working memory before clearing
         if (this.workingMemory.length > 0) {
             const contextString = this.workingMemory.map(m => `[${m.role}] ${typeof m.content === 'string' ? m.content : JSON.stringify(m.content)}`).join('\n');
-            semanticRetrieval.archive(contextString, { type: 'conversation_clear' });
+            backgroundWorker.executeTask('archiveMemory', { contextString, metadata: { type: 'conversation_clear' } }).catch(e => console.error(e));
         }
         
         this.workingMemory = [];
-        logger.info('MemoryManager', 'Working memory cleared and archived to Semantic Retrieval');
+        eventBus.publish('log', { level: 'INFO', module: 'MemoryManager', message: 'Working memory cleared and archiving to worker' });
     }
 
     enforceLimits() {
@@ -87,7 +87,8 @@ class MemoryManager {
             
             // Archive old memory that slides out
             if (removed && removed.content) {
-                semanticRetrieval.archive(`[${removed.role}] ${typeof removed.content === 'string' ? removed.content : JSON.stringify(removed.content)}`, { type: 'sliding_window_prune' });
+                const contextString = `[${removed.role}] ${typeof removed.content === 'string' ? removed.content : JSON.stringify(removed.content)}`;
+                backgroundWorker.executeTask('archiveMemory', { contextString, metadata: { type: 'sliding_window_prune' } }).catch(e => console.error(e));
             }
         }
     }

@@ -4,8 +4,11 @@ const path = require('path');
 const config = require('./src/config/config');
 const settingsStore = require('./src/config/settingsStore');
 const logger = require('./src/utils/logger');
-const stateMachine = require('./src/core/stateMachine');
+const eventBus = require('./src/core/EventBus');
 const { registerIpcHandlers } = require('./src/ipc/ipcHandlers');
+const metrics = require('./src/utils/metrics');
+const backgroundWorkerPool = require('./src/workers/backgroundWorker');
+const pluginManager = require('./src/plugins/PluginManager');
 
 let tray = null;
 let mainWindow = null;
@@ -49,8 +52,17 @@ function createWindow () {
   mainWindow.setIgnoreMouseEvents(true, { forward: true });
   mainWindow.loadFile('index.html');
   
+  // Forward log events to frontend (if needed in future Dev Console)
+  eventBus.subscribe('log', (logObj) => {
+      try {
+          if (!mainWindow.isDestroyed()) {
+              mainWindow.webContents.send('agent-log', logObj);
+          }
+      } catch (e) { }
+  });
+  
   // Forward state machine events to frontend
-  stateMachine.on('stateChanged', (state) => {
+  eventBus.subscribe('state:change', (state) => {
       try {
           if (!mainWindow.isDestroyed()) {
               mainWindow.webContents.send('agent-state', state);
@@ -97,11 +109,18 @@ function createTray() {
 
 app.whenReady().then(() => {
   // Always create the window immediately so the user isn't stuck with a silent background process
+  const startTimeMs = Date.now();
   createWindow();
   if (settingsStore.get('ui.trayMode')) {
       createTray();
   }
   registerIpcHandlers();
+
+  // Initialize Background Workers & Plugins
+  backgroundWorkerPool.init();
+  pluginManager.loadPlugins();
+
+  eventBus.publish('metrics:boot', Date.now() - startTimeMs);
 
   // Register DI Container for AgentLoop
   const diContainer = require('./src/core/diContainer');

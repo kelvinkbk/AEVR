@@ -6,7 +6,15 @@ class OllamaProvider extends ProviderInterface {
     constructor() {
         super();
         this.baseUrl = settingsStore.get('ai.baseUrl') || 'http://localhost:11434/v1';
-        this.model = settingsStore.get('ai.model') || 'llama3.1';
+        this.model = settingsStore.get('ai.model') || 'llama3.2';
+        
+        this.capabilities = {
+            supportsVision: true, // Assuming llama3.2-vision or similar
+            supportsTools: true,
+            supportsStreaming: false, // Planned for future
+            supportsReasoning: false,
+            supportsAudio: false
+        };
     }
 
     getName() {

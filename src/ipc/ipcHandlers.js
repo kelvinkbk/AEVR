@@ -1,9 +1,8 @@
 const { ipcMain, desktopCapturer, BrowserWindow } = require('electron');
-const stateMachine = require('../core/stateMachine');
+const eventBus = require('../core/EventBus');
 const memoryManager = require('../memory/memoryManager');
 const agentLoop = require('../core/agentLoop');
-const executor = require('../tools/executor');
-const logger = require('../utils/logger');
+const registry = require('../tools/registry');
 
 function registerIpcHandlers() {
     ipcMain.on('set-ignore-mouse-events', (event, ignore, options) => {
@@ -13,18 +12,17 @@ function registerIpcHandlers() {
 
     ipcMain.handle('send-message', async (event, message) => {
         try {
-            stateMachine.setState(stateMachine.states.LISTENING);
-            
-            stateMachine.setState(stateMachine.states.THINKING);
+            eventBus.publish('state:change', 'Listening');
+            eventBus.publish('state:change', 'Thinking');
             
             // The AI will use the analyze_screen tool if it needs to see the display.
             const result = await agentLoop.step(message, false, 0);
             
-            stateMachine.setState(stateMachine.states.SPEAKING);
+            eventBus.publish('state:change', 'Speaking');
             return result;
         } catch (error) {
-            stateMachine.setState(stateMachine.states.ERROR);
-            logger.error('IPCHandler', 'LLM Error processing message', error);
+            eventBus.publish('state:change', 'Error');
+            eventBus.publish('log', { level: 'ERROR', module: 'IPCHandler', message: 'LLM Error processing message', meta: { errorMsg: error.message } });
             
             return { type: 'text', content: 'Agent Error: ' + error.message };
         }
@@ -37,7 +35,7 @@ function registerIpcHandlers() {
             return await agentLoop.step(null, true, currentIterations);
         }
         
-        stateMachine.setState(stateMachine.states.EXECUTING);
+        eventBus.publish('state:change', 'Executing');
         
         try {
             let args = {};
@@ -53,9 +51,9 @@ function registerIpcHandlers() {
             return await agentLoop.step(null, true, currentIterations);
             
         } catch (error) {
-            stateMachine.setState(stateMachine.states.ERROR);
+            eventBus.publish('state:change', 'Error');
             memoryManager.addMessage('tool', `Execution failed: ${error.message}`);
-            logger.error('IPCHandler', 'Tool execution error', error);
+            eventBus.publish('log', { level: 'ERROR', module: 'IPCHandler', message: 'Tool execution error', meta: { errorMsg: error.message } });
             
             // Resume loop so LLM can recover from the error
             return await agentLoop.step(null, true, currentIterations);

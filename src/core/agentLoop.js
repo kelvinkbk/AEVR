@@ -1,10 +1,9 @@
 const memoryManager = require('../memory/memoryManager');
-const logger = require('../utils/logger');
+const eventBus = require('./EventBus');
 const diContainer = require('./diContainer');
 const planner = require('./planner');
 const executor = require('../tools/executor');
 const registry = require('../tools/registry');
-const stateMachine = require('./stateMachine');
 
 class AgentLoop {
     constructor() {
@@ -12,15 +11,15 @@ class AgentLoop {
     }
 
     async step(request, isResume = false, currentIterations = 0) {
-        logger.info('AgentLoop', isResume ? 'Resuming execution loop' : 'Starting new execution loop');
+        eventBus.publish('log', { level: 'INFO', module: 'AgentLoop', message: isResume ? 'Resuming execution loop' : 'Starting new execution loop' });
         
         if (!isResume && request) {
             memoryManager.addMessage('user', request);
-            stateMachine.setState(stateMachine.states.PLANNING);
+            eventBus.publish('state:change', 'Planning');
             
             // Generate Plan
             const plan = await planner.createPlan(request);
-            logger.info('AgentLoop', 'Plan generated', { steps: plan.length });
+            eventBus.publish('log', { level: 'INFO', module: 'AgentLoop', message: 'Plan generated', meta: { steps: plan.length } });
             
             memoryManager.addMessage('system', `Plan generated:\n${JSON.stringify(plan, null, 2)}`);
         }
@@ -30,7 +29,7 @@ class AgentLoop {
 
         while (iterations < this.maxIterations) {
             iterations++;
-            stateMachine.setState(stateMachine.states.THINKING);
+            eventBus.publish('state:change', 'Thinking');
             
             // Vision is handled by analyze_screen tool, no need to pass explicit data here
             const context = memoryManager.getContextForModel();
@@ -51,7 +50,7 @@ class AgentLoop {
                         memoryManager.addMessage('assistant', response.text);
                     }
 
-                    stateMachine.setState(stateMachine.states.EXECUTING);
+                    eventBus.publish('state:change', 'Executing');
                     
                     let args = {};
                     try { args = typeof response.command === 'string' ? JSON.parse(response.command) : response.command; } 
@@ -60,7 +59,7 @@ class AgentLoop {
                     const execResult = await executor.executeToolCall(response.name, args);
 
                     if (execResult && execResult.requiresUIApproval) {
-                        stateMachine.setState(stateMachine.states.WAITING_APPROVAL);
+                        eventBus.publish('state:change', 'Waiting Approval');
                         // Return control to UI to ask for permission, passing current iteration state
                         return {
                             type: 'tool_call', // Using tool_call type so UI parses it as a permission prompt
@@ -79,7 +78,7 @@ class AgentLoop {
                 }
 
             } catch (error) {
-                logger.error('AgentLoop', 'Error during loop iteration', error);
+                eventBus.publish('log', { level: 'ERROR', module: 'AgentLoop', message: 'Error during loop iteration', meta: { errorMsg: error.message } });
                 memoryManager.addMessage('system', `Error: ${error.message}. Please retry or adjust approach.`);
                 
                 if (iterations >= 3) {

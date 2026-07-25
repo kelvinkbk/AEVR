@@ -1,9 +1,8 @@
-const { EventEmitter } = require('events');
+const eventBus = require('./EventBus');
 const logger = require('../utils/logger');
 
-class StateMachine extends EventEmitter {
+class StateMachine {
     constructor() {
-        super();
         this.states = {
             IDLE: 'Idle',
             LISTENING: 'Listening',
@@ -30,7 +29,7 @@ class StateMachine extends EventEmitter {
         if (this.currentState !== newState) {
             const oldState = this.currentState;
             this.currentState = newState;
-            this.emit('stateChanged', this.currentState);
+            eventBus.publish('state:change', this.currentState);
             logger.info('StateMachine', `State changed: ${oldState} -> ${this.currentState}`);
         }
     }

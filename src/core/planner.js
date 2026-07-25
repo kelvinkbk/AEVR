@@ -5,7 +5,7 @@ class Planner {
     constructor() {
         this.systemPrompt = {
             role: 'system',
-            content: `You are the AEVR Planner module. Your job is to take a user's complex request and break it into a logical, sequential JSON array of subtasks. 
+            content: `You are the AEVR Advanced Planner. Your job is to take a user's complex request and break it into a logical, sequential JSON array of subtasks (a Task Graph). 
 Each subtask must contain:
 {
   "id": "task_1",
@@ -13,7 +13,7 @@ Each subtask must contain:
   "priority": "high|medium|low",
   "dependencies": [] // array of task ids that must be completed first
 }
-Return ONLY valid JSON. Do not include markdown formatting or explanations. If the task is simple and doesn't require multiple steps, return a single subtask.`
+Return ONLY valid JSON. Do not include markdown formatting or explanations. Dependencies ensure sequential execution.`
         };
     }
 

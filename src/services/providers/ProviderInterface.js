@@ -1,8 +1,17 @@
 class ProviderInterface {
     constructor() {
-        if (this.constructor === ProviderInterface) {
-            throw new Error("Abstract classes can't be instantiated.");
+        if (new.target === ProviderInterface) {
+            throw new TypeError("Cannot construct ProviderInterface instances directly");
         }
+        
+        // Default capabilities (to be overridden by subclasses)
+        this.capabilities = {
+            supportsVision: false,
+            supportsTools: false,
+            supportsStreaming: false,
+            supportsReasoning: false,
+            supportsAudio: false
+        };
     }
 
     /**
