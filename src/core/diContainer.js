@@ -1,5 +1,5 @@
-const logger = require('../../utils/logger');
-const ProviderFactory = require('./ProviderFactory');
+const logger = require('../utils/logger');
+const ProviderFactory = require('../services/providers/ProviderFactory');
 
 class DependencyInjector {
     constructor() {
