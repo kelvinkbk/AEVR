@@ -101,7 +101,7 @@ class OllamaProvider extends ProviderInterface {
 
         if (formatToolsForPrompt) {
             const toolDescriptions = tools.map(t => JSON.stringify(t)).join('\n\n');
-            const toolPrompt = `\n\n[SYSTEM DIRECTIVE]\nYou have access to the following tools:\n${toolDescriptions}\n\nTo use a tool, output a JSON object like this: {"tool_call": {"name": "tool_name", "arguments": {"arg1": "val"}}}\nOnly return the JSON object when calling a tool.`;
+            const toolPrompt = `\n\n[SYSTEM DIRECTIVE]\nYou have access to the following tools:\n${toolDescriptions}\n\nTo use a tool, output a JSON object like this: {"tool_call": {"name": "tool_name", "arguments": {"arg1": "val"}}}\nOnly return the JSON object when calling a tool.\nCRITICAL: You must escape all backslashes in JSON strings (e.g. use "C:\\\\path" instead of "C:\\path").`;
             
             // Append to the last user message to avoid confusing Llama's instruction tuning
             let lastUserMsg = null;

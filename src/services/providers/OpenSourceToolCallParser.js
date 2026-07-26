@@ -7,7 +7,18 @@ class OpenSourceToolCallParser {
             return this._buildToolCallResponse(message, nativeToolCalls);
         }
 
-        const content = typeof message.content === 'string' ? message.content.trim() : '';
+        let content = typeof message.content === 'string' ? message.content.trim() : '';
+        
+        const taskSchedulerIndex = content.indexOf('[TASK SCHEDULER]');
+        if (taskSchedulerIndex !== -1) {
+            content = content.substring(0, taskSchedulerIndex).trim();
+        }
+        
+        const systemDirectiveIndex = content.indexOf('[SYSTEM DIRECTIVE]');
+        if (systemDirectiveIndex !== -1) {
+            content = content.substring(0, systemDirectiveIndex).trim();
+        }
+
         if (!content) {
             return { type: 'text', content: '' };
         }
