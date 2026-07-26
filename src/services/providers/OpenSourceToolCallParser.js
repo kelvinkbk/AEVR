@@ -28,7 +28,7 @@ class OpenSourceToolCallParser {
         }
 
         // Fallback for XML tool calls generated in content text by Ollama models
-        const xmlMatch = content.match(/<tool_call>\s*([\s\S]*?)(?:<\/tool_call>|$)/i);
+        const xmlMatch = content.match(/<tool\\?_call>\s*([\s\S]*?)(?:<\/tool\\?_call>|$)/i);
         if (xmlMatch) {
             let jsonStr = xmlMatch[1].trim();
             // Llama 3.2 sometimes forgets the final closing brace
@@ -183,7 +183,10 @@ class OpenSourceToolCallParser {
 
     _safeJsonParse(text) {
         try {
-            return JSON.parse(text);
+            // Some models (like llava) aggressively escape underscores for markdown: \_ 
+            // This breaks JSON.parse, so we must clean it up first.
+            const cleanedText = text.replace(/\\_/g, '_');
+            return JSON.parse(cleanedText);
         } catch (error) {
             return null;
         }

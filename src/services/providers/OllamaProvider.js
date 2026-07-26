@@ -29,7 +29,7 @@ class OllamaProvider extends ProviderInterface {
         const supportsVision = this.model.toLowerCase().includes('llava');
         return {
             supportsVision,
-            supportsTools: true
+            supportsTools: !this.model.toLowerCase().includes('llava')
         };
     }
 
@@ -46,7 +46,7 @@ class OllamaProvider extends ProviderInterface {
         }
     }
 
-    async chat(messages, tools = []) {
+    async chat(messages, tools = [], onStream = null) {
         // Clone messages to avoid mutating the original history
         const formattedMessages = messages.map(msg => {
             if (msg.tool_calls && Array.isArray(msg.tool_calls)) {
@@ -73,24 +73,113 @@ class OllamaProvider extends ProviderInterface {
             }
         };
 
+        let formatToolsForPrompt = false;
         if (tools && tools.length > 0) {
-            payload.tools = tools;
+            if (this.getCapabilities().supportsTools) {
+                payload.tools = tools;
+            } else {
+                formatToolsForPrompt = true;
+            }
         }
 
-        try {
-            const response = await fetch(`${this.baseUrl}/chat/completions`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-
-            if (!response.ok) {
-                const errText = await response.text();
-                throw new Error(`Ollama API error (${response.status}): ${errText}`);
+        if (formatToolsForPrompt) {
+            const toolDescriptions = tools.map(t => JSON.stringify(t)).join('\n\n');
+            const toolPrompt = `\n\n[SYSTEM DIRECTIVE]\nYou have access to the following tools:\n${toolDescriptions}\n\nTo use a tool, output a JSON object like this: {"tool_call": {"name": "tool_name", "arguments": {"arg1": "val"}}}\nOnly return the JSON object when calling a tool.`;
+            
+            // Append to the last user message to avoid confusing Llama's instruction tuning
+            let lastUserMsg = null;
+            for (let i = formattedMessages.length - 1; i >= 0; i--) {
+                if (formattedMessages[i].role === 'user') {
+                    lastUserMsg = formattedMessages[i];
+                    break;
+                }
             }
+            if (lastUserMsg) {
+                lastUserMsg.content += toolPrompt;
+            } else {
+                formattedMessages.push({ role: 'user', content: toolPrompt });
+            }
+        }
+        try {
+            if (onStream) {
+                payload.stream = true;
+                const response = await fetch(`${this.baseUrl}/chat/completions`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
 
-            const data = await response.json();
-            return this.toolCallParser.parse(data);
+                if (!response.ok) {
+                    const errText = await response.text();
+                    throw new Error(`Ollama API error (${response.status}): ${errText}`);
+                }
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder('utf-8');
+                let fullContent = '';
+                let finalData = null;
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    const chunk = decoder.decode(value, { stream: true });
+                    const lines = chunk.split('\n').filter(l => l.trim().length > 0);
+                    
+                    for (const line of lines) {
+                        let dataObj;
+                        try {
+                            if (line.startsWith('data: ')) {
+                                if (line.trim() === 'data: [DONE]') continue;
+                                dataObj = JSON.parse(line.slice(6));
+                            } else {
+                                dataObj = JSON.parse(line);
+                            }
+                        } catch(e) { continue; }
+
+                        if (dataObj.choices && dataObj.choices[0].delta && dataObj.choices[0].delta.content) {
+                            const textChunk = dataObj.choices[0].delta.content;
+                            fullContent += textChunk;
+                            onStream(textChunk);
+                        } else if (dataObj.message && dataObj.message.content) {
+                            // Ollama native streaming format
+                            const textChunk = dataObj.message.content;
+                            fullContent += textChunk;
+                            onStream(textChunk);
+                        }
+                        
+                        if (dataObj.done || dataObj.choices?.[0]?.finish_reason) {
+                            finalData = dataObj;
+                        }
+                    }
+                }
+                
+                // Construct a mock OpenAI-style response object for the parser
+                const mockResponse = {
+                    choices: [{
+                        message: {
+                            role: 'assistant',
+                            content: fullContent
+                        }
+                    }]
+                };
+                return this.toolCallParser.parse(mockResponse);
+
+            } else {
+                const response = await fetch(`${this.baseUrl}/chat/completions`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    const errText = await response.text();
+                    throw new Error(`Ollama API error (${response.status}): ${errText}`);
+                }
+
+                const data = await response.json();
+                return this.toolCallParser.parse(data);
+            }
         } catch (error) {
             logger.error('OllamaProvider', 'Chat execution failed', error);
             throw error;

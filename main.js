@@ -72,6 +72,15 @@ function createWindow () {
       }
   });
 
+  // Forward agent streaming chunks to frontend
+  eventBus.subscribe('agent-stream', (chunk) => {
+      try {
+          if (!mainWindow.isDestroyed()) {
+              mainWindow.webContents.send('agent-stream', chunk);
+          }
+      } catch (e) { }
+  });
+
   logger.info('Main', 'Main window created successfully');
 }
 

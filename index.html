@@ -787,19 +787,113 @@
             }
         }
 
+        // --- STREAMING SUPPORT ---
+        let currentStreamMsgDiv = null;
+        let currentStreamContent = '';
+
+        if (window.api && window.api.onAgentStream) {
+            window.api.onAgentStream((chunk) => {
+                if (!currentStreamMsgDiv) {
+                    currentStreamMsgDiv = document.createElement('div');
+                    currentStreamMsgDiv.className = 'message ai-msg';
+                    messages.appendChild(currentStreamMsgDiv);
+                    currentStreamContent = '';
+                }
+                
+                currentStreamContent += chunk;
+                renderStreamContent(currentStreamMsgDiv, currentStreamContent);
+                messages.scrollTop = messages.scrollHeight;
+            });
+        }
+
+        function renderStreamContent(div, content) {
+            // Hide if it's purely a JSON tool call without thoughts
+            if (content.trim().startsWith('{') || (content.trim().startsWith('<tool') && !content.includes('<thought>'))) {
+                div.style.display = 'none';
+                return;
+            } else {
+                div.style.display = 'block';
+            }
+
+            // Strip out tool calls from display
+            let displayText = content;
+            const toolCallIndex = displayText.indexOf('<tool_call>');
+            if (toolCallIndex !== -1) {
+                displayText = displayText.substring(0, toolCallIndex);
+            }
+
+            let htmlContent = '';
+            let remainingText = displayText;
+            const thoughtRegex = /<thought>([\s\S]*?)(?:<\/thought>|$)/g;
+            let match;
+            let lastIndex = 0;
+
+            while ((match = thoughtRegex.exec(remainingText)) !== null) {
+                if (match.index > lastIndex) {
+                    htmlContent += formatMarkdown(remainingText.substring(lastIndex, match.index));
+                }
+                let safeThought = escapeHTML(match[1]).replace(/\n/g, '<br>');
+                htmlContent += `<div class="thought-process">
+                    <div class="thought-header">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 15h2v2h-2v-2zm1-12c-2.21 0-4 1.79-4 4h2c0-1.1.9-2 2-2s2 .9 2 2c0 2-3 1.75-3 5h2c0-2.25 3-2.5 3-5 0-2.21-1.79-4-4-4z"/></svg>
+                        Thinking...
+                    </div>
+                    <div class="thought-content">${safeThought}</div>
+                </div>`;
+                lastIndex = thoughtRegex.lastIndex;
+            }
+
+            if (lastIndex < remainingText.length) {
+                htmlContent += formatMarkdown(remainingText.substring(lastIndex));
+            }
+
+            if (htmlContent.trim().length === 0 && div.style.display !== 'none') {
+                 htmlContent = '<span style="opacity: 0.5;">...</span>';
+            }
+            div.innerHTML = htmlContent;
+        }
+
+        function escapeHTML(str) {
+            return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        }
+
+        function formatMarkdown(text) {
+            let formatted = escapeHTML(text);
+            formatted = formatted.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+            formatted = formatted.replace(/```([\s\S]*?)```/g, '<div style="background: rgba(0,0,0,0.3); padding: 8px; border-radius: 4px; font-family: monospace; overflow-x: auto; margin: 8px 0;">$1</div>');
+            formatted = formatted.replace(/`(.*?)`/g, '<span style="background: rgba(255,255,255,0.1); padding: 2px 4px; border-radius: 4px; font-family: monospace;">$1</span>');
+            formatted = formatted.replace(/\n/g, '<br>');
+            return formatted;
+        }
+
         async function processLLMResponse(reply) {
             if (!reply) return;
             
             if (reply.type === 'text') {
                 setState('speaking');
-                addMessage("ai", reply.content);
+                if (currentStreamMsgDiv) {
+                    // Finalize the streamed message
+                    currentStreamMsgDiv = null;
+                    currentStreamContent = '';
+                } else {
+                    addMessage("ai", reply.content);
+                }
                 setTimeout(() => setState('idle'), 3000);
             } 
             else if (reply.type === 'tool_call') {
                 setState('speaking');
                 
+                if (currentStreamMsgDiv) {
+                    // Retain streamed thought blocks, reset stream pointer for next message
+                    if (currentStreamMsgDiv.innerHTML.trim() === '' || currentStreamMsgDiv.style.display === 'none') {
+                        currentStreamMsgDiv.remove();
+                    }
+                    currentStreamMsgDiv = null;
+                    currentStreamContent = '';
+                }
+                
                 // Add the explanatory text if any
-                if (reply.text) {
+                if (reply.text && !reply.text.includes('The AI is attempting to execute')) {
                     addMessage("ai", reply.text);
                 }
                 
@@ -816,7 +910,6 @@
                 try {
                     args = JSON.parse(reply.command);
                 } catch (e) {
-                    // Fallback if LLM just returned a raw string instead of JSON object
                     args = { command: reply.command, x: 0, y: 0, text: reply.command };
                 }
                 
@@ -835,6 +928,9 @@
                 } else if (reply.name === "write_to_file") {
                     actionDesc = "📝 I need to write a file to your computer:";
                     actionPreview = `File: ${args.filepath}\n\n[Content hidden for brevity]`;
+                } else if (reply.name === "read_file") {
+                    actionDesc = "📄 I need to read a file from your computer:";
+                    actionPreview = `File: ${args.filepath}`;
                 }
                 
                 promptDiv.innerHTML = `
@@ -850,7 +946,6 @@
                 messages.appendChild(promptDiv);
                 messages.scrollTop = messages.scrollHeight;
                 
-                // Attach event listeners
                 const btnApprove = promptDiv.querySelector('.btn-approve');
                 const btnReject = promptDiv.querySelector('.btn-reject');
                 
@@ -902,57 +997,16 @@
 
         function addMessage(sender, text) {
             const msg = document.createElement('div');
-            
-            // Map "user" -> "user-msg", "ai" -> "ai-msg"
-            let className = sender;
-            if (sender === 'user') className = 'user-msg';
-            if (sender === 'ai') className = 'ai-msg';
-            
+            let className = sender === 'user' ? 'user-msg' : 'ai-msg';
             msg.className = `message ${className}`;
             
-            let htmlContent = '';
-            
             if (className.includes('ai-msg') && typeof text === 'string') {
-                const thoughtMatch = text.match(/<thought>([\s\S]*?)<\/thought>/);
-                if (thoughtMatch) {
-                    let safeThought = thoughtMatch[1]
-                        .replace(/&/g, "&amp;")
-                        .replace(/</g, "&lt;")
-                        .replace(/>/g, "&gt;")
-                        .replace(/\n/g, '<br>');
-                        
-                    htmlContent += `<div class="thought-process">
-                        <div class="thought-header">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 15h2v2h-2v-2zm1-12c-2.21 0-4 1.79-4 4h2c0-1.1.9-2 2-2s2 .9 2 2c0 2-3 1.75-3 5h2c0-2.25 3-2.5 3-5 0-2.21-1.79-4-4-4z"/></svg>
-                            Analyzing Screen & Thinking...
-                        </div>
-                        <div class="thought-content">${safeThought}</div>
-                    </div>`;
-                    text = text.replace(/<thought>[\s\S]*?<\/thought>/, '').trim();
-                }
+                renderStreamContent(msg, text);
+            } else {
+                msg.textContent = text;
             }
             
-            // Basic markdown support for bolding and code blocks
-            let formattedText = text;
-            if (typeof text === 'string') {
-                // Escape HTML first
-                formattedText = formattedText
-                    .replace(/&/g, "&amp;")
-                    .replace(/</g, "&lt;")
-                    .replace(/>/g, "&gt;");
-                    
-                formattedText = formattedText.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-                // Format code blocks (handling multiline as well)
-                formattedText = formattedText.replace(/```([\s\S]*?)```/g, '<div style="background: rgba(0,0,0,0.3); padding: 8px; border-radius: 4px; font-family: monospace; overflow-x: auto; margin: 8px 0;">$1</div>');
-                formattedText = formattedText.replace(/`(.*?)`/g, '<span style="background: rgba(255,255,255,0.1); padding: 2px 4px; border-radius: 4px; font-family: monospace;">$1</span>');
-                formattedText = formattedText.replace(/\n/g, '<br>');
-            }
-
-            htmlContent += `<div class="message-content">${formattedText}</div>`;
-            msg.innerHTML = htmlContent;
-
             messages.appendChild(msg);
-            
             // Re-trigger animation
             msg.style.animation = 'none';
             msg.offsetHeight; 
