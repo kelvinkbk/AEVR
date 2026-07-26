@@ -28,7 +28,7 @@ Return ONLY valid JSON. Do not include markdown formatting or explanations. Depe
                 { role: 'user', content: `Create an execution plan for this request: ${userRequest}` }
             ];
 
-            const response = await provider.chat(messages);
+            const response = await provider.chat(messages, [], null, { format: 'json' });
             
             if (response.type === 'text') {
                 try {

@@ -34,7 +34,7 @@ class AgentLoop {
             const plan = await planner.createPlan(request);
             this.currentPlan = plan;
             eventBus.publish('log', { level: 'INFO', module: 'AgentLoop', message: 'Plan generated', meta: { steps: plan.length } });
-            memoryManager.addMessage('system', `Task Plan generated:\n${JSON.stringify(plan, null, 2)}`);
+            memoryManager.addMessage('assistant', `<thought>I have created an execution plan for this request.</thought>\n\nTask Plan generated:\n${JSON.stringify(plan, null, 2)}`);
         }
 
         const provider = diContainer.get('provider');

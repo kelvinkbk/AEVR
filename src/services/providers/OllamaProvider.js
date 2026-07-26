@@ -46,7 +46,7 @@ class OllamaProvider extends ProviderInterface {
         }
     }
 
-    async chat(messages, tools = [], onStream = null) {
+    async chat(messages, tools = [], onStream = null, customOptions = {}) {
         // Check if there are any images in the context
         const hasVision = messages.some(msg => 
             Array.isArray(msg.content) && msg.content.some(c => c.type === 'image_url')
@@ -77,9 +77,14 @@ class OllamaProvider extends ProviderInterface {
             messages: formattedMessages,
             stream: false,
             options: {
-                temperature: tools && tools.length > 0 ? 0.1 : 0.5
+                temperature: tools && tools.length > 0 ? 0.1 : 0.5,
+                ...customOptions
             }
         };
+
+        if (customOptions.format) {
+            payload.format = customOptions.format;
+        }
 
         const activeModelSupportsTools = !activeModel.toLowerCase().includes('llava');
         let formatToolsForPrompt = false;

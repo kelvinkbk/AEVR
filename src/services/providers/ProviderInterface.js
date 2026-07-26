@@ -34,7 +34,7 @@ class ProviderInterface {
      * @param {Array} tools - (Optional) Array of available tools
      * @returns {Promise<Object>} The response object containing type (text/tool_call) and content
      */
-    async chat(messages, tools = []) {
+    async chat(messages, tools = [], onStream = null, options = {}) {
         throw new Error("Method 'chat()' must be implemented.");
     }
 
