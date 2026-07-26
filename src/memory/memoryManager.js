@@ -48,8 +48,6 @@ Rules:
 
     getContextForModel(screenshotDataUrl = null) {
         let systemPromptCopy = JSON.parse(JSON.stringify(this.systemPrompt));
-        const toolSchemas = registry.getSchemas();
-        systemPromptCopy.content += `\n\nDetailed Tool Schemas:\n${JSON.stringify(toolSchemas, null, 2)}`;
         
         let context = [systemPromptCopy];
 

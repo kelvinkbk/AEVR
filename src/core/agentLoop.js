@@ -64,10 +64,10 @@ class AgentLoop {
                     }
                 });
 
-                // Add task context to system message
+                // Add task context to system message using natural language
                 const taskContextMsg = {
                     role: 'user',
-                    content: `[TASK SCHEDULER]\nCurrent Task (${this.currentTaskIndex + 1}/${this.currentPlan.length}): "${currentTask.description}"\nPriority: ${currentTask.priority}\n\nExecute tools to achieve this task. When you are finished and have verified your work, use the 'task_complete' tool.`
+                    content: `Please execute the next task in our plan: "${currentTask.description}". (Priority: ${currentTask.priority}, Task ${this.currentTaskIndex + 1} of ${this.currentPlan.length}).\n\nWhen you are completely finished and have verified your work, use the 'task_complete' tool.`
                 };
                 
                 // Inject the task context at the end of memory for the model
