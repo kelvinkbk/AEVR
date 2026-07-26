@@ -8,7 +8,7 @@ const eventBus = require('./src/core/EventBus');
 const { registerIpcHandlers } = require('./src/ipc/ipcHandlers');
 const metrics = require('./src/utils/metrics');
 const backgroundWorkerPool = require('./src/workers/backgroundWorker');
-const pluginManager = require('./src/plugins/pluginManager');
+const pluginManager = require('./src/plugins/PluginManager');
 
 let tray = null;
 let mainWindow = null;

@@ -47,6 +47,14 @@ class OllamaProvider extends ProviderInterface {
     }
 
     async chat(messages, tools = [], onStream = null) {
+        // Check if there are any images in the context
+        const hasVision = messages.some(msg => 
+            Array.isArray(msg.content) && msg.content.some(c => c.type === 'image_url')
+        );
+        
+        const baseModel = settingsStore.get('ai.model') || 'llama3.2';
+        const activeModel = hasVision ? 'llava:latest' : (baseModel.includes('llama3.2-vision') ? 'llama3.2' : baseModel);
+
         // Clone messages to avoid mutating the original history
         const formattedMessages = messages.map(msg => {
             if (msg.tool_calls && Array.isArray(msg.tool_calls)) {
@@ -61,11 +69,11 @@ class OllamaProvider extends ProviderInterface {
                     }))
                 };
             }
-            return msg;
+            return { ...msg };
         });
 
         const payload = {
-            model: this.model,
+            model: activeModel,
             messages: formattedMessages,
             stream: false,
             options: {
@@ -73,12 +81,16 @@ class OllamaProvider extends ProviderInterface {
             }
         };
 
+        const activeModelSupportsTools = !activeModel.toLowerCase().includes('llava');
         let formatToolsForPrompt = false;
+        
         if (tools && tools.length > 0) {
-            if (this.getCapabilities().supportsTools) {
+            if (activeModelSupportsTools) {
                 payload.tools = tools;
             } else {
-                formatToolsForPrompt = true;
+                // If using a vision model that doesn't support tools, don't pass tools at all
+                // to avoid confusing the model with complex prompts. It will just describe the image.
+                formatToolsForPrompt = false; 
             }
         }
 
